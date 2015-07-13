@@ -1,7 +1,7 @@
 package core.memory.memory8;
 
-import core.exception.HardwareException;
 import core.emulator.HardwareComponent;
+import core.exception.HardwareException;
 
 public class MemoryBus8 implements HardwareComponent {
 

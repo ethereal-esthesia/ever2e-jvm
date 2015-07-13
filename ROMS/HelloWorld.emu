@@ -1,0 +1,3 @@
+machine.layout=APPLE_IIE
+binary.file=HELLO_WORLD.ROM
+address.start=0xF000

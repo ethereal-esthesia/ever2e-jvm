@@ -1,5 +1,6 @@
 package core.memory.memory8;
 
+import peripherals.SlotLayout;
 import core.exception.HardwareException;
 import device.display.DisplayIIe;
 import device.keyboard.KeyboardIIe;
@@ -9,8 +10,8 @@ public class MemoryBusIIe extends MemoryBus8 {
 	public static final int BANKED_RAM = 0x10000;
 	public static final int ROM_START = 0xc000;
 
-	private Memory8 rom16k;
-	private Memory8 slotRom256b[] = new Memory8[8];
+	private byte[] rom16k;
+	private byte[] slotRom[] = new byte[7][];
 
 	private KeyboardIIe keyboard;
 	private DisplayIIe monitor;
@@ -87,7 +88,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
-			/// TODO: add monitor read-byte here instead of 0x00
 			if( readSwitchStatus==null )
 				return monitor==null ? 0:monitor.getLastRead();
 			else
@@ -96,6 +96,17 @@ public class MemoryBusIIe extends MemoryBus8 {
 		}
 
 	}
+
+	private SwitchIIe nullSwitch = new SwitchIIe(null) {
+		@Override
+		public void writeMem( int address, int value ) {
+		}
+	};
+	
+	private SwitchReadOnlyIIe warnSwitch = new SwitchReadOnlyIIe(null) {
+		public void writeMem(int address, int value) { System.err.println("Warning: writes not implemented for switch at 0x"+Integer.toHexString(address)); }
+		public int readMem(int address) { System.err.println("Warning: reads not implemented for switch at 0x"+Integer.toHexString(address));
+		return super.readMem(address); }  };
 
 	public class SwitchSetStatusIIe extends SwitchIIe {
 
@@ -572,11 +583,11 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 			if( switchIntCxRom.getState() )
 				// Internal ROM at $CNXX
-				return rom16k.getByte(address-0xc000);
+				return Byte.toUnsignedInt(rom16k[address-0xc000]);
 			else {
 				// Peripheral card ROM at $CNXX
-				if( slotRom256b[slot] != null )
-					return slotRom256b[slot].getByte(address&0x00ff);
+				if( slotRom[slot-1] != null )
+					return Byte.toUnsignedInt(slotRom[slot-1][address&0x00ff]);
 				else
 					return monitor==null ? 0:monitor.getLastRead();
 			}
@@ -608,12 +619,12 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 			if( switchIntCxRom.getState() || !switchSlotC3Rom.getState() ) {
 				// Internal ROM at $C3XX
-				return rom16k.getByte(address-0xc000);
+				return Byte.toUnsignedInt(rom16k[address-0xc000]);
 			}
 			else {
 				// Peripheral card ROM at $C3XX
-				if( slotRom256b[3] != null )
-					return slotRom256b[3].getByte(address&0x00ff);
+				if( slotRom[3] != null )
+					return Byte.toUnsignedInt(slotRom[3][address&0x00ff]);
 				else
 					return monitor==null ? 0:monitor.getLastRead();
 			}
@@ -647,7 +658,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 			}
 
 			if( switchIntC8Rom.getState() || switchIntCxRom.getState() )
-				return rom16k.getByte(address-0xc000);
+				return Byte.toUnsignedInt(rom16k[address-0xc000]);
 
 			/// STUB ///
 
@@ -662,7 +673,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 			else {
 				if( false )//// STUB - LC ROM switch on
-					return rom16k.getByte(address-0xc000);
+					return Byte.toUnsignedInt(rom16k.getByte(address-0xc000));
 				else {
 					if( false )//// internal slot 3 test logic
 						return expRom2k[0][address&0x7ff];  // Internal slot 3 ROM
@@ -710,7 +721,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 			}
 			else
-				return rom16k.getByte(address-ROM_START);
+				return Byte.toUnsignedInt(rom16k[address-ROM_START]);
 
 		}
 
@@ -748,7 +759,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 	private MemoryBlock8 memoryLayout;
 
-	public MemoryBusIIe( Memory8 memory, Memory8 rom16k ) {
+	public MemoryBusIIe( Memory8 memory, byte [] rom16k ) {
 		super(memory);
 		this.rom16k = rom16k;
 	}
@@ -762,7 +773,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 	public void setByte( int address, int value ) {
 		memoryLayout.writeMem(address, value);
 	}
-
 
 	public void warmRestart() {
 		// Reset every switch except text and mixed
@@ -843,11 +853,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 		ioSwitchesOuter.assignNextBlock(0xc000, ioSwitches);
 		ioSwitchesOuter.completeBlock();
 		/// TODO: replace this warning with nullSwitch
-		SwitchReadOnlyIIe warnSwitchLow = new SwitchReadOnlyIIe(null) {
-			public void writeMem(int address, int value) { System.err.println("Warning: writes not implemented for switch at 0x"+Integer.toHexString(address)); }
-			public int readMem(int address) { System.err.println("Warning: reads not implemented for switch at 0x"+Integer.toHexString(address));
-			return super.readMem(address); }  };
-		ioSwitches.assignNextBlock(0xc000, warnSwitchLow);
+		ioSwitches.assignNextBlock(0xc000, warnSwitch);
 		ioSwitches.completeBlock();
 		// TODO: c000 - c000F actually reads keyboard not monitor
 		ioSwitches.assignBlock(0xc000, new SwitchKeyboardStrobe(null));
@@ -952,13 +958,8 @@ public class MemoryBusIIe extends MemoryBus8 {
 		ioSwitches.assignBlock(0xc08e, switchIo_c08a_c08e);
 		ioSwitches.assignBlock(0xc08f, switchIo_c08b_c08f);
 
-		/// TODO implement peripheral I/O here instead of displaying warning
-		SwitchReadOnlyIIe warnSwitch = new SwitchReadOnlyIIe(null) {
-			public void writeMem(int address, int value) { System.err.println("Warning: peripheral writes not implemented in range 0xc090-0xc0ff"); }
-			public int readMem(int address) { System.err.println("Warning: peripheral reads not implemented in range 0xc090-0xc0ff");
-			return super.readMem(address); }  };
 		for( int i = 0xc090; i<0xc100; i++ )
-			ioSwitches.assignBlock(i, warnSwitch);
+			ioSwitches.assignBlock(i, nullSwitch);
 
 		memoryLayout.assignNextBlock(0xc000, ioSwitches);
 		//memoryLayout.assignNextBlock(0xc000, ioSwitchesOuter);
@@ -980,6 +981,52 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		memoryLayout.completeBlock();
 
+	}
+
+	public void setSlotLayout( int slot, SlotLayout slotLayout ) {
+		int blockAddr = 0xc080+(slot<<4);
+		switch( slotLayout==null ? SlotLayout.ROM_ONLY:slotLayout ) {
+		case DRIVE_IIE:
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			break;
+		default:
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			break;
+		}
+	}
+
+	public void setSlotRom( int slot, byte[] slotRom ) {
+		this.slotRom[slot-1] = slotRom;
 	}
 
 	public KeyboardIIe getKeyboard() {

@@ -33,6 +33,10 @@ Need to swap memory bus outputs from video to keyboard out for 16 read types
                                  VERSION INFO                                   
 -------------------------------------------------------------------------------
 
+ROM's externally loaded (place APPLE2E.ROM in "ROMS" folder)
+    machine properties files now implemented (see ROMS folder)
+    passing an argument to the application specifies the ".emu" properties
+      file to load
 CPU with accurate cycle timing, synced with emulated monitor refresh rate
 	decimal mode incomplete
 Memory bus
