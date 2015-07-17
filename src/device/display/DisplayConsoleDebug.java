@@ -17,6 +17,8 @@ public class DisplayConsoleDebug extends DisplayConsole {
 		memory = cpu.getMemoryBus().getMemory();
 	}
 
+static boolean record = false;
+	
 	@Override
 	public void cycle() throws HardwareException {
 		incSleepCycles(1);
@@ -31,9 +33,11 @@ public class DisplayConsoleDebug extends DisplayConsole {
 				System.out.println("Pausing 1 second for BRK command . . .");
 				try{ Thread.sleep(1000); } catch ( InterruptedException e ) {}
 			}
-//			System.out.println(cpu.getOpcodeString()+"   "+cpu.getRegister().toString());
+			if( cpu.getRegister().getPCH()==0xc6 )
+				record = true;
+			if( record )
+				System.out.println(cpu.getOpcodeString()+"   "+cpu.getRegister().toString());
 		}
-System.out.println(cpu.getOpcodeString()+"   "+cpu.getRegister().toString());
 		lastUnits = cpu.getNextCycleUnits();
 	}
 

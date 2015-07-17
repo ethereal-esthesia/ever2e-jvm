@@ -1,4 +1,5 @@
 machine.layout=APPLE_IIE
+#machine.layout=DEBUG_65C02
 binary.file=APPLE2E.ROM
 address.start=0xC000
 
@@ -24,9 +25,9 @@ machine.layout.slot.5=
 binary.file.slot.5=
 
 machine.layout.slot.6=
+#DRIVE_IIE
 binary.file.slot.6=
-#machine.layout.slot.6=DRIVE_IIE
-#binary.file.slot.6=DRIVE2E.ROM
+#DRIVE2E.ROM
 
 machine.layout.slot.7=
 binary.file.slot.7=

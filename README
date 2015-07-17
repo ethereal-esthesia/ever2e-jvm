@@ -21,7 +21,7 @@ http://github.com/cursorcorner/ever2e-jvm
 -------------------------------------------------------------------------------
 
 Speaker static at startup due to JIT compilation
-	possibly vary or increase the buffer size
+	will need to start audio routine in it's own thread to filter blank noise
 Speaker ticks audibly when simulated drum pressure is released
 	should be modified to only tick when pressure is first applied
 Does not successfully pass IIe memory test

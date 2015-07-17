@@ -8,6 +8,7 @@ import java.awt.Graphics;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.util.Random;
 
 import core.exception.HardwareException;
 import core.memory.memory8.Memory8;
@@ -22,8 +23,8 @@ public class DisplayIIe extends DisplayWindow {
 
 	private Frame frame;
 	private Canvas32x32 canvas;
-	private MemoryBusIIe memoryBus;
 	private Memory8 memory;
+	private MemoryBusIIe memoryBus;
 
 	private int textMod;
 	private DisplayType displayType;
@@ -1196,14 +1197,18 @@ public class DisplayIIe extends DisplayWindow {
 	}
 
 	public DisplayIIe(MemoryBusIIe memoryBus, KeyboardIIe keyboard, long unitsPerCycle) throws HardwareException {
+	
 		super(unitsPerCycle);
+		
+		setMemoryBus(memoryBus);
 		tracer = new ScanlineTracer8();
 		tracer.setScanStart(25, 70);
 		tracer.setScanSize(65, 262);
-		this.memoryBus = memoryBus;
-		this.memory = memoryBus.getMemory();
-		coldRestart();
 		canvas = new Canvas32x32();
+		canvas.setBackground(Color.BLACK);
+		canvas.repaint();
+		canvas.addKeyListener(keyboard);
+		canvas.setFocusTraversalKeysEnabled(false);
 		frame = new Frame("Ever2E");
 		frame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent windowEvent){
@@ -1211,14 +1216,11 @@ public class DisplayIIe extends DisplayWindow {
 			}
 		});
 		frame.add(canvas);
-		canvas.setBackground(Color.BLACK);
 		frame.setVisible(true);
 		frame.setSize(XSIZE+(xOff<<1), YSIZE+(yOff<<1)+frame.getInsets().top);
 		frame.addKeyListener(keyboard);
 		frame.setFocusTraversalKeysEnabled(false);
-		canvas.repaint();
-		canvas.addKeyListener(keyboard);
-		canvas.setFocusTraversalKeysEnabled(false);
+		coldRestart();
 	}
 
 	private class Canvas32x32 extends Canvas {
@@ -1338,6 +1340,7 @@ public class DisplayIIe extends DisplayWindow {
 				return;
 		}
 
+		// *** TODO change this to evaluate only display switch changes
 		int switchIteration = memoryBus.getSwitchIteration();
 		if( lastSwitchIteration!=switchIteration ) {
 			lastSwitchIteration = switchIteration;
@@ -1498,8 +1501,9 @@ public class DisplayIIe extends DisplayWindow {
 
 	@Override
 	public void coldRestart() throws HardwareException {
-		tracer.coldRestart();
 		lastSwitchIteration = -1;
+		evaluateSwitchChange();
+		tracer.coldRestart();
 		rawDisplay = new BufferedImage[2];
 		bufferPage = 0;
 		paintPage = 1;
@@ -1507,6 +1511,15 @@ public class DisplayIIe extends DisplayWindow {
 		rawDisplay[0] = new BufferedImage(XSIZE+2, YSIZE, BufferedImage.TYPE_INT_RGB);
 		rawDisplay[1] = new BufferedImage(XSIZE+2, YSIZE, BufferedImage.TYPE_INT_RGB);
 		generatePalette();
+		// Randomly position the first scan to simulate an always-on screen
+		int randScans = new Random().nextInt(17030);
+		memory = new Memory8(0x10000);
+		memory.coldRestart();
+		for( int i = 0; i<randScans; i++ ) {
+			incSleepCycles(-1);
+			cycle();
+		}
+		memory = memoryBus.getMemory();
 	}
 
 	private void generatePalette() {
@@ -1573,6 +1586,16 @@ public class DisplayIIe extends DisplayWindow {
 
 	public boolean isVbl() {
 		return tracer.isVbl();
+	}
+
+	public void setMemoryBus( MemoryBusIIe memoryBus ) {
+		if( memoryBus==null ) {
+			memory = new Memory8(0x10000);
+			this.memoryBus = new MemoryBusIIe(memory, new byte[0x4000]);
+		} else {
+			memory = memoryBus.getMemory();
+			this.memoryBus = memoryBus;
+		}
 	}
 
 }

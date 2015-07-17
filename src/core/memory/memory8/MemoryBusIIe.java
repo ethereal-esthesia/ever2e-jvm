@@ -11,7 +11,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 	public static final int ROM_START = 0xc000;
 
 	private byte[] rom16k;
-	private byte[] slotRom[] = new byte[7][];
+	private byte[] slotRom[] = new byte[8][];
 
 	private KeyboardIIe keyboard;
 	private DisplayIIe monitor;
@@ -586,8 +586,8 @@ public class MemoryBusIIe extends MemoryBus8 {
 				return Byte.toUnsignedInt(rom16k[address-0xc000]);
 			else {
 				// Peripheral card ROM at $CNXX
-				if( slotRom[slot-1] != null )
-					return Byte.toUnsignedInt(slotRom[slot-1][address&0x00ff]);
+				if( slotRom[slot] != null )
+					return Byte.toUnsignedInt(slotRom[slot][address&0x00ff]);
 				else
 					return monitor==null ? 0:monitor.getLastRead();
 			}
@@ -761,58 +761,9 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 	public MemoryBusIIe( Memory8 memory, byte [] rom16k ) {
 		super(memory);
+		
 		this.rom16k = rom16k;
-	}
-
-	@Override
-	public int getByte( int address ) {
-		return memoryLayout.readMem(address);
-	}
-
-	@Override
-	public void setByte( int address, int value ) {
-		memoryLayout.writeMem(address, value);
-	}
-
-	public void warmRestart() {
-		// Reset every switch except text and mixed
-		switch80Store.resetState();
-		switchHiRes.resetState();
-		switchRamRead.resetState();
-		switchRamWrt.resetState();
-		switchAltZp.resetState();
-		switchPage2.resetState();
-		switchBank1.resetState();
-		switchHRamRd.resetState();
-		switchHRamWrt.resetState();
-		switchPreWrite.resetState();
-		switchIntCxRom.resetState();
-		switchSlotC3Rom.resetState();
-		switchIntC8Rom.resetState();
-		switch80Col.resetState();
-		switchAltCharSet.resetState();
-		switchAn0.resetState();
-		switchAn1.resetState();
-		switchAn2.resetState();
-		switchAn3.resetState();
-		switchIteration++;
-	}
-
-	@Override
-	public void coldRestart() throws HardwareException {
-
-		super.coldRestart();
-		for( int i = Math.min(0x10000, getMaxAddress())/4-1; i>=0; i-- ) {
-			memory.setByte(i*4+0, 0xff);
-			memory.setByte(i*4+1, 0xff);
-			memory.setByte(i*4+2, 0x00);
-			memory.setByte(i*4+3, 0x00);
-		}
-
-		switchText.resetState();
-		switchMixed.resetState();
-		warmRestart();
-
+		
 		memoryLayout = new MemoryBlock8(0x0000, 0xffff, 8);
 
 		// 0000h Zero-page
@@ -983,50 +934,101 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 	}
 
+	@Override
+	public int getByte( int address ) {
+		return memoryLayout.readMem(address);
+	}
+
+	@Override
+	public void setByte( int address, int value ) {
+		memoryLayout.writeMem(address, value);
+	}
+
+	public void warmRestart() {
+		// Reset every switch except text and mixed
+		switch80Store.resetState();
+		switchHiRes.resetState();
+		switchRamRead.resetState();
+		switchRamWrt.resetState();
+		switchAltZp.resetState();
+		switchPage2.resetState();
+		switchBank1.resetState();
+		switchHRamRd.resetState();
+		switchHRamWrt.resetState();
+		switchPreWrite.resetState();
+		switchIntCxRom.resetState();
+		switchSlotC3Rom.resetState();
+		switchIntC8Rom.resetState();
+		switch80Col.resetState();
+		switchAltCharSet.resetState();
+		switchAn0.resetState();
+		switchAn1.resetState();
+		switchAn2.resetState();
+		switchAn3.resetState();
+		switchIteration++;
+	}
+
+	@Override
+	public void coldRestart() throws HardwareException {
+
+		super.coldRestart();
+		for( int i = Math.min(0x10000, getMaxAddress())/4-1; i>=0; i-- ) {
+			memory.setByte(i*4+0, 0xff);
+			memory.setByte(i*4+1, 0xff);
+			memory.setByte(i*4+2, 0x00);
+			memory.setByte(i*4+3, 0x00);
+		}
+
+		switchText.resetState();
+		switchMixed.resetState();
+		warmRestart();
+
+	}
+
 	public void setSlotLayout( int slot, SlotLayout slotLayout ) {
 		int blockAddr = 0xc080+(slot<<4);
 		switch( slotLayout==null ? SlotLayout.ROM_ONLY:slotLayout ) {
 		case DRIVE_IIE:
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x1h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x2h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x3h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x4h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x5h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x6h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x7h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x8h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x9h
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xAh
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xBh
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xCh
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xDh
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xEh
+			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xFh
 			break;
 		default:
 			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x1h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x2h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x3h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x4h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x5h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x6h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x7h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x8h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x9h
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xAh
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xBh
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xCh
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xDh
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xEh
+			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xFh
 			break;
 		}
 	}
 
 	public void setSlotRom( int slot, byte[] slotRom ) {
-		this.slotRom[slot-1] = slotRom;
+		this.slotRom[slot] = slotRom;
 	}
 
 	public KeyboardIIe getKeyboard() {
@@ -1314,52 +1316,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 	}
 
 /*
-	void putPeripheral( Cpu65c02* cpu, Monitor560x192* monitor, Speaker1bit* speaker, Keyboard2e* keyboard )
-	{
-		this->cpu = cpu;
-		this->monitor = monitor;
-		this->speaker = speaker;
-		this->keyboard = keyboard;
-		coldReset();
-	}
-
-	void putSlot( int slot, PeripheralCard16bit* card )
-	{
-		assert( (unsigned int) slot<8 );
-		slotCard[slot] = card;
-	}
-
-	void coldReset()
-	{
-
-		// Load language card (LC) ROM from file
-		switchState = Uint32(0);
-		_commitSwitches();
-
-		// Set initial peripheral ROM state
-		for( int i = 0; i<8; i++ )
-			slotCard[i] = NULL;
-
-		accessCount = 0;
-		toggleMod = 0;
-
-	}
-
-	Uint8 _randRead()
-	{
-		/// STUB ///
-		/// See Sather 5-29, 5-40 for possible values
-		return 0x00;
-	}
-
-	Uint8 _randRead7bit()
-	{
-		/// STUB ///
-		/// See Sather 5-29, 5-40 for possible values
-		return _randRead()&0x7f;
-	}
-
-	/// A separate command could be used to dump ROM ///
 
 	public String toString()
 	{
@@ -1397,10 +1353,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 		cout.flags(coutFlags);
 
 	}
-
-	case 0xc019:
-		// Read VBL
-		return _randRead7bit() | (monitor->getVbl()<<7);
 
 */
 

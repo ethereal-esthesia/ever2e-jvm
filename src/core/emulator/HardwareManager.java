@@ -24,7 +24,7 @@ public abstract class HardwareManager implements HardwareComponent, Comparable<H
 	 */
 	public abstract void cycle() throws HardwareException;
 
-	protected void incSleepCycles( long sleepCycles ) {
+	public void incSleepCycles( long sleepCycles ) {
 		nextActionCycleUnits += sleepCycles*unitsPerCycle;
 	}
 

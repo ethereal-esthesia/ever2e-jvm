@@ -101,7 +101,7 @@ public class Speaker1Bit extends HardwareManager  {
 		if( vel>-1f/32768f && vel<1f/32767f )
 			vel = 0f;
 	
-		// Move diafragm
+		// Move diaphragm
 		float accel = -SPRING_FORCE*pos;
 	
 		accel += charge;
@@ -116,7 +116,7 @@ public class Speaker1Bit extends HardwareManager  {
 				charge = 0f;
 		}
 	
-		// Apply diafragm position to average for sampling and commit sample when necessary
+		// Apply diaphragm position to average for sampling and commit sample when necessary
 		sampleTotal++;
 		sampleSum += pos;
 	
@@ -126,7 +126,8 @@ public class Speaker1Bit extends HardwareManager  {
 			sampleSum = sampleSum>MAX_SOUND_WORD ? MAX_SOUND_WORD:sampleSum;
 			sampleSum = sampleSum<MIN_SOUND_WORD ? MIN_SOUND_WORD:sampleSum;
 	
-			buffer[bufferIndex++] = (byte) (sampleSum/256f);
+			byte sampleByte = (byte) (sampleSum/256f);
+			buffer[bufferIndex++] = sampleByte;
 			if( bufferIndex==SAMPLE_BUFFER_SIZE ) {
 				bufferIndex = 0;
 				sdl.write(buffer, 0, SAMPLE_BUFFER_SIZE);
