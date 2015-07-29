@@ -2,11 +2,14 @@ package peripherals.drive.floppy525;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 import javax.xml.bind.DatatypeConverter;
 
 import peripherals.PeripheralIIe;
+import core.emulator.VirtualMachineProperties;
 import core.exception.HardwareException;
 import core.memory.memory8.MemoryBusIIe.SwitchSet8;
 
@@ -18,7 +21,6 @@ import core.memory.memory8.MemoryBusIIe.SwitchSet8;
  * 9-14 data register
  * 9-15 sequencer
  * 9-21 write protect
- * 9-25 writes
  * 9-25 write example
  * 9-26 Group Code Recording translation tables & read example
  * 9-27 detailed read explanation
@@ -27,6 +29,8 @@ import core.memory.memory8.MemoryBusIIe.SwitchSet8;
  */
 
 public class Floppy525Controller extends PeripheralIIe {
+
+	private String[] fileName = new String[2];
 
 	private static final byte[] DOS_ORDER_SECTORS = { 0, 7, 14, 6, 13, 5, 12, 4, 11, 3, 10, 2, 9, 1, 8, 15 };
 	
@@ -93,12 +97,15 @@ public class Floppy525Controller extends PeripheralIIe {
 
 	private boolean[] readOnly = new boolean[2];
 
-	private String fileName = "DISKS/blank2.nib";
 	private byte[][] diskImage;
 
-	private int[] dataShift = new int[2];
-	private int[] dataSelect = new int[2];
+//	private int[] dataShift = new int[2];
+//	private int[] dataSelect = new int[2];
 	private int dataRegister = 0;
+	private int writeRequestRegister = 0;
+	private int writeRegister = -1;
+
+	private boolean[] driveChange = new boolean [2];
 
 	private SwitchSet8 switchSet = new SwitchSet8() {
 
@@ -162,7 +169,7 @@ public class Floppy525Controller extends PeripheralIIe {
 					driveOffRequest[driveSelect] = 0;
 				break;
 			case 0x09:  // Drive on
-				driveOn[driveSelect] = true;
+				startDrive(driveSelect);
 				driveOffRequest[driveSelect] = -1;
 				break;
 			case 0x0a:  // Drive 1 select
@@ -172,12 +179,15 @@ public class Floppy525Controller extends PeripheralIIe {
 				driveSelect = 1;
 				break;
 			case 0x0c:  // Poll read / set up reading
+				if( writeOn[driveSelect] )
+					writeRegister = writeRequestRegister;
 				break;
-			case 0x0d:  // ?
+			case 0x0d:  // Load (needed for writes)
 				break;
 			case 0x0e:  // Read
-				msb = true;//readOnly[driveSelect];
 				writeOn[driveSelect] = false;
+				if( driveOn[driveSelect] )
+					msb = readOnly[driveSelect];
 				break;
 			case 0x0f:  // Write
 				writeOn[driveSelect] = true;
@@ -212,14 +222,19 @@ public class Floppy525Controller extends PeripheralIIe {
 
 		@Override
 		public void writeMem( int address, int value ){
+			if( ((address&0x000f)==0x000d || (address&0x000f)==0x000f) && driveOn[driveSelect] ) 
+				writeRequestRegister = value;
+			driveChange[driveSelect] = true;
 			readMem(address);
 		}
 
 		@Override
 		public void warmReset() {
 			driveSelect = 0;
-			driveOn[driveSelect] = false;
-			writeOn[driveSelect] = false;
+			killDrive(0);
+			killDrive(1);
+			writeOn[1] = false;
+			writeOn[1] = false;
 			displayDriveStatus();
 		}
 
@@ -234,50 +249,17 @@ public class Floppy525Controller extends PeripheralIIe {
 			}
 	}
 
-	public Floppy525Controller( int slot, long unitsPerCycle ) throws IOException, HardwareException {
+	public Floppy525Controller( int slot, long unitsPerCycle, VirtualMachineProperties properties ) throws IOException, HardwareException {
 		super(unitsPerCycle);
 		this.slot = slot;
+		fileName[0] = properties.getProperty("machine.layout.slot."+slot+".drive.1.file", null);
+		fileName[1] = properties.getProperty("machine.layout.slot."+slot+".drive.2.file", null);
 		driveOnPrevious[driveSelect] = false;
 		headHalfTrack[0] = 69;
 		headHalfTrack[1] = 69;
 		driveOffRequest[0] = -1;
 		driveOffRequest[1] = -1;
 		coldReset();
-		loadImage(fileName);
-	}
-
-	private void loadImage( String fileName ) throws IOException {
-		diskImage = new byte[TRACK_TOTAL][TRACK_BYTES];
-		FileInputStream binStream = null;
-		try {
-			File file = new File(fileName);
-			readOnly[0] = !file.canWrite();
-			binStream = new FileInputStream(file);
-			fileName = fileName.trim();
-			String fileExt = fileName.trim().substring(fileName.lastIndexOf('.')+1).toUpperCase();
-			switch( fileExt ) {
-			case EXT_PRODOS_ORDER:
-				for( int track = 0; track<TRACK_TOTAL; track++ )
-					for( int sector = 0; sector<16; sector++ )
-						binStream.read(diskImage[track], sector*SECTOR_BYTES+0, 0x100);
-				throw new IOException("ProDOS images not yet supported, please convert to NIB format.");
-			case EXT_DOS_ORDER:
-			case EXT_DOS_ORDER_EXPLICIT:
-				for( int track = 0; track<TRACK_TOTAL; track++ )
-					for( int sector = 0; sector<16; sector++ )
-						binStream.read(diskImage[track], sector*SECTOR_BYTES+0, 0x100);
-				throw new IOException("DOS images not yet supported, please convert to NIB format.");
-			case NIBBLE_EXT:
-				for( int track = 0; track<TRACK_TOTAL; track++ )
-					binStream.read(diskImage[track], 0, TRACK_BYTES);
-				break;
-			default:
-				throw new IOException(fileExt+" format not supported.");
-			}
-		} finally {
-			if( binStream!=null )
-				binStream.close();
-		}
 	}
 
 	@Override
@@ -292,7 +274,7 @@ public class Floppy525Controller extends PeripheralIIe {
  *            but not with existing emulated disk formats
  *            due to lack of nibble cycle-timing calculations when generating and
  *            even reading in images on existing emulators
-             
+
 		incSleepCycles(4);
 
 		if( driveOn[driveSelect] ){
@@ -317,25 +299,129 @@ public class Floppy525Controller extends PeripheralIIe {
 
 		incSleepCycles(32);
 
-		if( driveOn[driveSelect]&&!writeOn[driveSelect] ) {
+		if( driveOn[driveSelect] ) {
 			headSectorByte[driveSelect]++;
 			if( headSectorByte[driveSelect]==TRACK_BYTES )
 				headSectorByte[driveSelect] = 0;
-			dataRegister = Byte.toUnsignedInt(
-					diskImage[headHalfTrack[driveSelect]>>1][headSectorByte[driveSelect]]);
+			if( !writeOn[driveSelect] ) {
+				dataRegister = Byte.toUnsignedInt(
+						diskImage[headHalfTrack[driveSelect]>>1][headSectorByte[driveSelect]]);
+			}
 		}
 
+		if( writeRegister>=0 ) {
+			diskImage[headHalfTrack[driveSelect]>>1][headSectorByte[driveSelect]] =
+					(byte) writeRegister;
+			writeRegister = -1;
+		}
+		
 		for( int drive = 0; drive<2; drive++ ) {
 			if( driveOffRequest[drive]>=0 &&
-					driveOffRequest[drive]++==0x40000/8 ) {
+					driveOffRequest[drive]++==0x40000>>3 ) {
 				driveOffRequest[drive] = -1;
-				driveOn[drive] = false;
-				displayDriveStatus();
+				killDrive(drive);
 			}
 		}
 
 	}
 	
+	private void loadImage( int drive ) {
+		
+		diskImage = new byte[TRACK_TOTAL][TRACK_BYTES];
+		FileInputStream binStream = null;
+		try {
+			String fileName = this.fileName[drive].trim();
+			File file = new File(fileName);
+			readOnly[0] = !file.canWrite();
+			binStream = new FileInputStream(file);
+			String fileExt = fileName.trim().substring(fileName.lastIndexOf('.')+1).toUpperCase();
+			switch( fileExt ) {
+			case EXT_PRODOS_ORDER:
+				for( int track = 0; track<TRACK_TOTAL; track++ )
+					for( int sector = 0; sector<16; sector++ )
+						binStream.read(diskImage[track], sector*SECTOR_BYTES+0, 0x100);
+				throw new IOException("ProDOS images not yet supported, please convert to NIB format.");
+			case EXT_DOS_ORDER:
+			case EXT_DOS_ORDER_EXPLICIT:
+				for( int track = 0; track<TRACK_TOTAL; track++ )
+					for( int sector = 0; sector<16; sector++ )
+						binStream.read(diskImage[track], sector*SECTOR_BYTES+0, 0x100);
+				throw new IOException("DOS images not yet supported, please convert to NIB format.");
+			case NIBBLE_EXT:
+				for( int track = 0; track<TRACK_TOTAL; track++ )
+					binStream.read(diskImage[track], 0, TRACK_BYTES);
+				break;
+			default:
+				throw new IOException(fileExt+" format not supported.");
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if( binStream!=null ) {
+				try {
+					binStream.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		
+	}
+
+	private void saveImage( int drive ) {
+
+		FileOutputStream binStream = null;
+		try {
+			String fileName = this.fileName[drive].trim();
+			binStream = new FileOutputStream(fileName);
+			String fileExt = fileName.trim().substring(fileName.lastIndexOf('.')+1).toUpperCase();
+			switch( fileExt ) {
+			case EXT_PRODOS_ORDER:
+				throw new IOException("ProDOS images not yet supported, please convert to NIB format.");
+			case EXT_DOS_ORDER:
+			case EXT_DOS_ORDER_EXPLICIT:
+				throw new IOException("DOS images not yet supported, please convert to NIB format.");
+			case NIBBLE_EXT:
+				for( int track = 0; track<TRACK_TOTAL; track++ )
+					binStream.write(diskImage[track], 0, TRACK_BYTES);
+				break;
+			default:
+				throw new IOException(fileExt+" format not supported.");
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if( binStream!=null )
+					binStream.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+	}
+
+	private void startDrive( int drive ) {
+		if( driveOn[drive] )
+			return;
+		driveOn[drive] = true;
+		displayDriveStatus();
+		loadImage(drive);
+	}
+		
+	private void killDrive( int drive ) {
+		if( !driveOn[drive] )
+			return;
+		driveOn[drive] = false;
+		displayDriveStatus();
+		if( !driveChange[drive] )
+			return;
+		driveChange[drive] = false;
+		saveImage(drive);
+	}
+
 	@Override
 	public byte[] getRom256b(){
 		return ROM;

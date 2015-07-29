@@ -27,12 +27,17 @@ Speaker ticks audibly when simulated drum pressure is released
 Does not successfully pass IIe memory test
 Needs to reset keyboard when focus is regained to avoid stuck-keys
 Need to swap memory bus outputs from video to keyboard out for 16 read types
-
+Disk drive INIT command hangs
+Some non-DOS disk NIB images hang at load time
 
 -------------------------------------------------------------------------------
                                  VERSION INFO                                   
 -------------------------------------------------------------------------------
 
+Floppy 5.25" disk support
+    only NIB format currently supported
+    disk for given drive and slot must currently be configured once at
+      startup using properties file
 ROM's externally loaded (place APPLE2E.ROM in "ROMS" folder)
     machine properties files now implemented (see ROMS folder)
     passing an argument to the application specifies the ".emu" properties

@@ -1,7 +1,6 @@
 package core.emulator.machine.machine8;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.text.DecimalFormat;
 import java.util.PriorityQueue;
 
@@ -151,7 +150,8 @@ public class Emulator8Coordinator {
 						peripheralClass = "peripherals."+peripheralClass;
 					PeripheralIIe peripheralCard = peripheralClass==null ? null :
 							(PeripheralIIe) Class.forName(peripheralClass).
-							getConstructor(int.class, long.class).newInstance(slot, (long) unitsPerCycle);
+							getConstructor(int.class, long.class, VirtualMachineProperties.class).newInstance(
+									slot, (long) unitsPerCycle, properties);
 					card = ((MemoryBusIIe) bus).setSlot(slot, peripheralCard);
 					((MemoryBusIIe) bus).setSlotRom(slot, card==null ? null:card.getRom256b());
 					if( card!=null )

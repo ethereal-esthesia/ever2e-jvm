@@ -138,6 +138,17 @@ public class MemoryBusIIe extends MemoryBus8 {
 		}
 	};
 	
+	private SwitchIIe cassetteInSwitch = new SwitchIIe(null) {
+		@Override
+		public int readMem( int address ) {
+			// STUB
+			return super.readMem(address)&0x7f;
+		}
+		@Override
+		public void writeMem( int address, int value ) {
+		}
+	};
+	
 	private SwitchReadOnlyIIe warnSwitch = new SwitchReadOnlyIIe(null) {
 		public void writeMem(int address, int value) { System.err.println("Warning: writes not implemented for switch at 0x"+Integer.toHexString(address)); }
 		public int readMem(int address) { System.err.println("Warning: reads not implemented for switch at 0x"+Integer.toHexString(address));
@@ -919,6 +930,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 		// c066 PADDL2 Analog Input 2
 		// c067 PADDL3 Analog Input 3
 		// c068 - cassette in
+		ioSwitches.assignBlock(0xc068, cassetteInSwitch);
 		ioSwitches.assignBlock(0xc069, stateOpenApple);
 		ioSwitches.assignBlock(0xc06a, stateOptionKey);
 		ioSwitches.assignBlock(0xc06b, stateShiftKey);

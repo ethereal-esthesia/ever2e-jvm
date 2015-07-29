@@ -27,13 +27,7 @@ private boolean record = false;
 				System.out.println("Pausing 1 second for BRK command . . .");
 				try{ Thread.sleep(1000); } catch ( InterruptedException e ) {}
 			}
-			if( cpu.getRegister().getPC()==0xbe2e )
-				System.out.println("!");
 //			if( cpu.getRegister().getPCH()<0xc0 )
-//			if( cpu.getRegister().getPCH()>>4==3 )
-if( memory.getByte(0x2d)>0)
-	System.out.println("!");
-			if( cpu.getRegister().getPCH()==0xc6 || cpu.getRegister().getPCH()<0xc0 )
 				System.out.println(cpu.getOpcodeString()+"   "+cpu.getRegister().toString());
 		}
 		lastUnits = cpu.getNextCycleUnits();
