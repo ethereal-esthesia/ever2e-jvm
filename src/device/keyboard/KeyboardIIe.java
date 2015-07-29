@@ -188,7 +188,7 @@ public class KeyboardIIe extends Keyboard {
 	
 	public KeyboardIIe( long unitsPerCycle, Cpu65c02 cpu ) throws HardwareException {
 		super(unitsPerCycle);
-		coldRestart();
+		coldReset();
 		this.cpu = cpu;
 	}
 
@@ -432,7 +432,7 @@ public class KeyboardIIe extends Keyboard {
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
+	public void coldReset() throws HardwareException {
 		keyEventQueue = new ConcurrentLinkedQueue<>();
 		keyQueue = new LinkedList<>();
 		isHalted = false;

@@ -40,7 +40,7 @@ public class Emulator {
 	public void coldReset() throws HardwareException {
 		HardwareManager[] managerList = new HardwareManager[hardwareManagerQueue.size()];
 		for( HardwareManager manager : hardwareManagerQueue.toArray(managerList) )
-			manager.coldRestart();
+			manager.coldReset();
 	}
 
 }

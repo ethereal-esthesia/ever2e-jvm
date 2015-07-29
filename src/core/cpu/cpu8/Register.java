@@ -149,8 +149,8 @@ public class Register {
 		StringBuffer out = new StringBuffer();
 
 		out.append("A:"+Cpu65c02.getHexString(getA(), 2)+" ");
-		out.append("Y:"+Cpu65c02.getHexString(getY(), 2)+" ");
 		out.append("X:"+Cpu65c02.getHexString(getX(), 2)+" ");
+		out.append("Y:"+Cpu65c02.getHexString(getY(), 2)+" ");
 		out.append("PC:"+Cpu65c02.getHexString(getPC(), 4)+" ");
 		out.append("S:"+Cpu65c02.getHexString(getS(), 2)+" ");
 		out.append("P:");

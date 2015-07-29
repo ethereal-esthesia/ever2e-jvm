@@ -1,6 +1,6 @@
 package core.memory.memory8;
 
-import peripherals.SlotLayout;
+import peripherals.PeripheralIIe;
 import core.exception.HardwareException;
 import device.display.DisplayIIe;
 import device.keyboard.KeyboardIIe;
@@ -10,8 +10,35 @@ public class MemoryBusIIe extends MemoryBus8 {
 	public static final int BANKED_RAM = 0x10000;
 	public static final int ROM_START = 0xc000;
 
+	private static final int[] MEMORY_RESET_PATTERN = new int[] {
+		0x0000,0x0200,0x0400,0x0600,0x0A00,0x0C00,0x0E00,0x1200,
+		0x1400,0x1600,0x1A00,0x1C00,0x1E00,0x2200,0x2400,0x2600,
+		0x2A00,0x2C00,0x2E00,0x3000,0x3200,0x3400,0x3600,0x3A00,
+		0x3C00,0x3E00,0x4000,0x4200,0x4400,0x4600,0x4A00,0x4C00,
+		0x4E00,0x5040,0x5080,0x50C0,0x5100,0x5140,0x5180,0x51C0,
+		0x5240,0x5280,0x52C0,0x5300,0x5340,0x5380,0x53C0,0x5400,
+		0x5600,0x5800,0x5840,0x5880,0x58C0,0x5900,0x5940,0x5980,
+		0x59C0,0x5A40,0x5A80,0x5AC0,0x5B00,0x5B40,0x5B80,0x5BC0,
+		0x5C40,0x5C80,0x5CC0,0x5D00,0x5D40,0x5D80,0x5DC0,0x5E40,
+		0x5E80,0x5EC0,0x5F00,0x5F40,0x5F80,0x5FC0,0x6000,0x6200,
+		0x6400,0x6600,0x6A00,0x6C00,0x6E00,0x7000,0x7200,0x7400,
+		0x7600,0x7A00,0x7C00,0x7E00,0x8200,0x8400,0x8600,0x8A00,
+		0x8C00,0x8E00,0x9000,0x9200,0x9400,0x9600,0x9A00,0x9C00,
+		0x9E00,0xA000,0xA040,0xA080,0xA0C0,0xA100,0xA140,0xA180,
+		0xA1C0,0xA240,0xA280,0xA2C0,0xA300,0xA340,0xA380,0xA3C0,
+		0xA440,0xA480,0xA4C0,0xA500,0xA540,0xA580,0xA5C0,0xA640,
+		0xA680,0xA6C0,0xA700,0xA740,0xA780,0xA7C0,0xA800,0xAA00,
+		0xAC00,0xAC40,0xAC80,0xACC0,0xAD00,0xAD40,0xAD80,0xADC0,
+		0xAE40,0xAE80,0xAEC0,0xAF00,0xAF40,0xAF80,0xAFC0,0xB200,
+		0xB400,0xB600,0xBA00,0xBC00,0xBE00,0xC000,0xC200,0xC400,
+		0xC600,0xCA00,0xCC00,0xCE00,0xD000,0xD200,0xD400,0xD600,
+		0xDA00,0xDC00,0xDE00,0xE200,0xE400,0xE600,0xEA00,0xEC00,
+		0xEE00,0xF200,0xF400,0xF600,0xFA00,0xFC00,0xFE00,0x10000
+	};
+	
 	private byte[] rom16k;
 	private byte[] slotRom[] = new byte[8][];
+	private SwitchSet8[] slotSwitchList = new SwitchSet8[8];
 
 	private KeyboardIIe keyboard;
 	private DisplayIIe monitor;
@@ -51,10 +78,12 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		public void setState() {
 			state = true;
+			switchIteration++;
 		}
 
 		public void resetState() {
 			state = false;
+			switchIteration++;
 		}
 
 		public String toString() {
@@ -68,6 +97,12 @@ public class MemoryBusIIe extends MemoryBus8 {
 		public int readMem( int address );
 
 		public void writeMem( int address, int value );
+
+	}
+
+	public interface SwitchSet8 extends MemoryAction8 {
+
+		public void warmReset();
 
 	}
 
@@ -944,7 +979,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 		memoryLayout.writeMem(address, value);
 	}
 
-	public void warmRestart() {
+	public void warmReset() {
 		// Reset every switch except text and mixed
 		switch80Store.resetState();
 		switchHiRes.resetState();
@@ -966,65 +1001,72 @@ public class MemoryBusIIe extends MemoryBus8 {
 		switchAn2.resetState();
 		switchAn3.resetState();
 		switchIteration++;
+		for( int i = 0; i<6; i++ ) 
+			if( slotSwitchList[i]!=null )
+				slotSwitchList[i].warmReset();
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
+	public void coldReset() throws HardwareException {
 
-		super.coldRestart();
-		for( int i = Math.min(0x10000, getMaxAddress())/4-1; i>=0; i-- ) {
-			memory.setByte(i*4+0, 0xff);
-			memory.setByte(i*4+1, 0xff);
-			memory.setByte(i*4+2, 0x00);
-			memory.setByte(i*4+3, 0x00);
+		super.coldReset();
+		
+		boolean flipFlop = false;
+		
+		for( int patternInd = 0; patternInd<MEMORY_RESET_PATTERN.length-1;
+				patternInd++, flipFlop = !flipFlop ) {
+			
+			for( int i = MEMORY_RESET_PATTERN[patternInd]>>3;
+					i<MEMORY_RESET_PATTERN[patternInd+1]>>3; i++ ) {
+				
+				if( flipFlop ) {
+					memory.setByte((i<<3)+0, 0xff);
+					memory.setByte((i<<3)+1, 0x00);
+					memory.setByte((i<<3)+2, 0xff);
+					memory.setByte((i<<3)+3, 0x00);
+					memory.setByte((i<<3)+4, 0x00);
+					memory.setByte((i<<3)+5, 0xff);
+					memory.setByte((i<<3)+6, 0x00);
+					memory.setByte((i<<3)+7, 0xff);
+				} else {
+					memory.setByte((i<<3)+0, 0x00);
+					memory.setByte((i<<3)+1, 0xff);
+					memory.setByte((i<<3)+2, 0x00);
+					memory.setByte((i<<3)+3, 0xff);
+					memory.setByte((i<<3)+4, 0xff);
+					memory.setByte((i<<3)+5, 0x00);
+					memory.setByte((i<<3)+6, 0xff);
+					memory.setByte((i<<3)+7, 0x00);
+				}
+
+			}
+
 		}
-
+	
 		switchText.resetState();
 		switchMixed.resetState();
-		warmRestart();
+		warmReset();
 
 	}
 
-	public void setSlotLayout( int slot, SlotLayout slotLayout ) {
+	public PeripheralIIe setSlot( int slot, PeripheralIIe peripheralCard ) {
+		
 		int blockAddr = 0xc080+(slot<<4);
-		switch( slotLayout==null ? SlotLayout.ROM_ONLY:slotLayout ) {
-		case DRIVE_IIE:
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x1h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x2h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x3h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x4h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x5h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x6h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x7h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x8h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0x9h
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xAh
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xBh
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xCh
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xDh
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xEh
-			ioSwitches.assignBlock(blockAddr++, warnSwitch);  // C0xFh
-			break;
-		default:
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x0h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x1h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x2h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x3h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x4h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x5h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x6h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x7h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x8h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0x9h
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xAh
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xBh
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xCh
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xDh
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xEh
-			ioSwitches.assignBlock(blockAddr++, nullSwitch);  // C0xFh
-			break;
-		}
+		for( int k=0; k<16; k++ )
+			if( peripheralCard!=null )
+				ioSwitches.assignBlock(blockAddr++, peripheralCard.getSwitchSet());
+			else
+				ioSwitches.assignBlock(blockAddr++, nullSwitch);
+		PeripheralIIe card = null;
+		if( PeripheralIIe.class.isInstance(peripheralCard) )
+			card = (PeripheralIIe) peripheralCard;
+		slotSwitchList[slot-1] = card==null ? null:card.getSwitchSet();
+		return card;
+		
+	}
+
+	public void resetSlot( int slot ) {
+		setSlot(slot, null);
 	}
 
 	public void setSlotRom( int slot, byte[] slotRom ) {
@@ -1056,7 +1098,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switch80Store.setState();
 		else
 			this.switch80Store.resetState();
-		switchIteration++;
 	}
 
 	public boolean isHiRes() {
@@ -1068,7 +1109,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchHiRes.setState();
 		else
 			this.switchHiRes.resetState();
-		switchIteration++;
 	}
 
 	public boolean isRamRead() {
@@ -1080,7 +1120,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchRamRead.setState();
 		else
 			this.switchRamRead.resetState();
-		switchIteration++;
 	}
 
 	public boolean isRamWrt() {
@@ -1092,7 +1131,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchRamWrt.setState();
 		else
 			this.switchRamWrt.resetState();
-		switchIteration++;
 	}
 
 	public boolean isText() {
@@ -1104,7 +1142,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchText.setState();
 		else
 			this.switchText.resetState();
-		switchIteration++;
 	}
 
 	public boolean isPage2() {
@@ -1116,7 +1153,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchPage2.setState();
 		else
 			this.switchPage2.resetState();
-		switchIteration++;
 	}
 
 	public boolean isMixed() {
@@ -1128,7 +1164,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchMixed.setState();
 		else
 			this.switchMixed.resetState();
-		switchIteration++;
 	}
 
 	public boolean isAltZp() {
@@ -1140,7 +1175,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchAltZp.setState();
 		else
 			this.switchAltZp.resetState();
-		switchIteration++;
 	}
 
 	public boolean isBank1() {
@@ -1152,7 +1186,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchBank1.setState();
 		else
 			this.switchBank1.resetState();
-		switchIteration++;
 	}
 
 	public boolean isHRamRd() {
@@ -1164,7 +1197,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchHRamRd.setState();
 		else
 			this.switchHRamRd.resetState();
-		switchIteration++;
 	}
 
 	public boolean isHRamWrt() {
@@ -1176,7 +1208,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchHRamWrt.setState();
 		else
 			this.switchHRamWrt.resetState();
-		switchIteration++;
 	}
 
 	public boolean isPreWrite() {
@@ -1188,7 +1219,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchPreWrite.setState();
 		else
 			this.switchPreWrite.resetState();
-		switchIteration++;
 	}
 
 	public boolean isIntCxRom() {
@@ -1200,7 +1230,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchIntCxRom.setState();
 		else
 			this.switchIntCxRom.resetState();
-		switchIteration++;
 	}
 
 	public boolean isSlotC3Rom() {
@@ -1212,7 +1241,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchSlotC3Rom.setState();
 		else
 			this.switchSlotC3Rom.resetState();
-		switchIteration++;
 	}
 
 	public boolean isIntC8Rom() {
@@ -1224,7 +1252,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchIntC8Rom.setState();
 		else
 			this.switchIntC8Rom.resetState();
-		switchIteration++;
 	}
 
 	public boolean is80Col() {
@@ -1236,7 +1263,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switch80Col.setState();
 		else
 			this.switch80Col.resetState();
-		switchIteration++;
 	}
 
 	public boolean isAltCharSet() {
@@ -1248,7 +1274,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchAltCharSet.setState();
 		else
 			this.switchAltCharSet.resetState();
-		switchIteration++;
 	}
 
 	public boolean isAn0() {
@@ -1260,7 +1285,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchAn0.setState();
 		else
 			this.switchAn0.resetState();
-		switchIteration++;
 	}
 
 	public boolean isAn1() {
@@ -1272,7 +1296,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchAn1.setState();
 		else
 			this.switchAn1.resetState();
-		switchIteration++;
 	}
 
 	public boolean isAn2() {
@@ -1284,7 +1307,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchAn2.setState();
 		else
 			this.switchAn2.resetState();
-		switchIteration++;
 	}
 
 	public boolean isAn3() {
@@ -1296,7 +1318,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchAn3.setState();
 		else
 			this.switchAn3.resetState();
-		switchIteration++;
 	}
 
 	public boolean isSpeakerToggle() {
@@ -1308,7 +1329,6 @@ public class MemoryBusIIe extends MemoryBus8 {
 			this.switchSpeakerToggle.setState();
 		else
 			this.switchSpeakerToggle.resetState();
-		switchIteration++;
 	}
 
 	public int getSwitchIteration() {

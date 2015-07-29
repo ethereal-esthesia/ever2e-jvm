@@ -43,8 +43,8 @@ public class Display32x32Console extends DisplayConsole {
 	}
 	
 	@Override
-	public void coldRestart() throws HardwareException {
-		super.coldRestart();
+	public void coldReset() throws HardwareException {
+		super.coldReset();
 	}
 
 	public static int getAddressLo( int page, int scanline, int offset )

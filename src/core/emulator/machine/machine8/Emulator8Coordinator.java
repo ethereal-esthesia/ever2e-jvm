@@ -1,6 +1,7 @@
 package core.emulator.machine.machine8;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.text.DecimalFormat;
 import java.util.PriorityQueue;
 
@@ -8,6 +9,7 @@ import javax.sound.sampled.LineUnavailableException;
 
 import org.junit.Test;
 
+import peripherals.PeripheralIIe;
 import core.cpu.cpu8.Cpu65c02;
 import core.emulator.HardwareManager;
 import core.emulator.VirtualMachineProperties;
@@ -27,14 +29,14 @@ import device.speaker.Speaker1Bit;
 
 public class Emulator8Coordinator {
 
-	private static final String DEFAULT_ROM = "ROMS/Apple2e.emu";
+	private static final String DEFAULT_MACHINE = "ROMS/Apple2e.emu";
 	private static final int GRANULARITY_BITS_PER_MS = 32;
 
 	public static void main( String[] argList ) throws HardwareException, InterruptedException, IOException {
 
 		String propertiesFile;
 		if( argList.length==0 )
-			propertiesFile = DEFAULT_ROM;
+			propertiesFile = DEFAULT_MACHINE;
 		else
 			propertiesFile = argList[0];
 		System.out.println("Loading \""+propertiesFile+"\" into memory");
@@ -61,7 +63,7 @@ public class Emulator8Coordinator {
 
 		if( properties.getLayout()==MachineLayoutType.DEMO_32x32 ) {
 			bus = new MemoryBusDemo8(memory, keyboard);
-			bus.coldRestart();
+			bus.coldReset();
 			cpuMultiplier /= 32d;
 			displayMultiplier = 60d/cpuClock;
 			hardwareManagerQueue.add(cpu = new Cpu65c02((MemoryBusIIe) bus, (long) (unitsPerCycle/cpuMultiplier)));
@@ -76,7 +78,7 @@ public class Emulator8Coordinator {
 		} else if( properties.getLayout()==MachineLayoutType.DEMO_32x32_CONSOLE ) {
 			displayMultiplier = 10d/cpuClock;
 			bus = new MemoryBusDemo8(memory, null);
-			bus.coldRestart();
+			bus.coldReset();
 			cpuMultiplier /= 32d;
 			hardwareManagerQueue.add(cpu = new Cpu65c02((MemoryBusIIe) bus, (long) (unitsPerCycle/cpuMultiplier)));
 			cpu.getRegister().setA(0);
@@ -87,9 +89,9 @@ public class Emulator8Coordinator {
 			hardwareManagerQueue.add(new Display32x32Console(bus, (long) (unitsPerCycle/displayMultiplier)));
 		} else if( properties.getLayout()==MachineLayoutType.DEBUG_65C02 ) {
 			bus = new MemoryBusIIe(memory, rom16k);
-			bus.coldRestart();
+			bus.coldReset();
 			hardwareManagerQueue.add(cpu = new Cpu65c02((MemoryBusIIe) bus, (long) (unitsPerCycle/cpuMultiplier)));
-			cpu.coldRestart();
+			cpu.coldReset();
 			keyboard = new KeyboardIIe((long) (unitsPerCycle/keyActionMultiplier), cpu);
 			hardwareManagerQueue.add(new DisplayConsoleDebug(cpu, (long) (unitsPerCycle/cpuMultiplier)));
 			((MemoryBusIIe) bus).setKeyboard(keyboard);
@@ -97,9 +99,9 @@ public class Emulator8Coordinator {
 			hardwareManagerQueue.add(keyboard);
 		} else {
 			bus = new MemoryBusIIe(memory, rom16k);
-			bus.coldRestart();
+			bus.coldReset();
 			hardwareManagerQueue.add(cpu = new Cpu65c02((MemoryBusIIe) bus, (long) (unitsPerCycle/cpuMultiplier)));
-			cpu.coldRestart();
+			cpu.coldReset();
 			keyboard = new KeyboardIIe((long) (unitsPerCycle/keyActionMultiplier), cpu);
 			//hardwareManagerQueue.add(new DisplayConsoleAppleIIe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier)));
 			DisplayIIe display = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
@@ -137,11 +139,33 @@ public class Emulator8Coordinator {
 			}
 		}
 
+		System.out.println();
+		
 		// Add peripherals in slots 1-7
 		if( bus instanceof MemoryBusIIe )
 			for( int slot = 1; slot<=7; slot++ ) {
-				((MemoryBusIIe) bus).setSlotLayout(slot, properties.getSlotLayout(slot));
-				((MemoryBusIIe) bus).setSlotRom(slot, properties.getSlotRom(slot));
+				PeripheralIIe card = null;
+				try {
+					String peripheralClass = properties.getSlotLayout(slot);
+					if( peripheralClass!=null )
+						peripheralClass = "peripherals."+peripheralClass;
+					PeripheralIIe peripheralCard = peripheralClass==null ? null :
+							(PeripheralIIe) Class.forName(peripheralClass).
+							getConstructor(int.class, long.class).newInstance(slot, (long) unitsPerCycle);
+					card = ((MemoryBusIIe) bus).setSlot(slot, peripheralCard);
+					((MemoryBusIIe) bus).setSlotRom(slot, card==null ? null:card.getRom256b());
+					if( card!=null )
+						hardwareManagerQueue.add(card);
+				} catch ( Exception e ) {
+					if( e.getCause()!=null && Exception.class.isInstance(e) )
+						e = (Exception) e.getCause();
+					System.out.println("Warning: Unable to load peripheral class for slot "+slot+
+							(e.getLocalizedMessage()==null?"":":\n"+e.getLocalizedMessage()));
+					((MemoryBusIIe) bus).resetSlot(slot);
+					((MemoryBusIIe) bus).setSlotRom(slot, null);
+				} finally {
+					System.out.println("Slot "+slot+": "+(card==null?"empty":card));
+				}
 			}
 		
 		System.out.println();

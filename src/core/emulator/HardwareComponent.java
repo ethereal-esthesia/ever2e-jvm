@@ -8,6 +8,6 @@ public interface HardwareComponent {
 	 * Simulates events during a cold-restart such as the machine powering off and then on
 	 * @throws HardwareException
 	 */
-	void coldRestart() throws HardwareException;
+	void coldReset() throws HardwareException;
 	
 }

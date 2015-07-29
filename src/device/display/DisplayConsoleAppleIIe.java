@@ -40,8 +40,8 @@ public class DisplayConsoleAppleIIe extends DisplayConsole {
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
-		super.coldRestart();
+	public void coldReset() throws HardwareException {
+		super.coldReset();
 	}
 
 	public static int getAddressLo40( int page, int scanline, int offset )

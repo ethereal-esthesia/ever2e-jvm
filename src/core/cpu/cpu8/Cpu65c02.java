@@ -409,7 +409,7 @@ public class Cpu65c02 extends HardwareManager {
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
+	public void coldReset() throws HardwareException {
 		
 		// Startup register values
 		/// Verify values for real CPU ///
@@ -430,7 +430,7 @@ public class Cpu65c02 extends HardwareManager {
 		newOpcode = INTERRUPT_RES;
 		cycleCount = INTERRUPT_RES.getCycleTime();
 		
-		memory.coldRestart();
+		memory.coldReset();
 		
 	}
 
@@ -1140,7 +1140,7 @@ public class Cpu65c02 extends HardwareManager {
 				// _TEXT and _MIXED statuses are not modified by a reset interrupt
 				// Sather 7-3, Sather I-5 suggests the Apple II reset operates differently than the Apple IIe
 				if( !isHalted ) {
-					memory.warmRestart();
+					memory.warmReset();
 					isHalted = true;
 				}
 				break;

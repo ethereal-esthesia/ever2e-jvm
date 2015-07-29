@@ -152,7 +152,7 @@ public class Speaker1Bit extends HardwareManager  {
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
+	public void coldReset() throws HardwareException {
 	}
 
 }

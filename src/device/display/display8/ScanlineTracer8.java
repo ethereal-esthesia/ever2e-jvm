@@ -20,7 +20,7 @@ public class ScanlineTracer8 implements HardwareComponent {
 	private int scanWordMask;
 
 	@Override
-	public void coldRestart() {
+	public void coldReset() {
 		hScan = hSize-1;
 		vScan = vSize-1;
 	}
@@ -39,13 +39,13 @@ public class ScanlineTracer8 implements HardwareComponent {
 	public void setScanStart( int hStart, int vStart ) {
 		this.hStart = hStart;
 		this.vStart = vStart;
-		coldRestart();
+		coldReset();
 	}
 
 	public void setScanSize( int hSize, int vSize ) {
 		this.hSize = hSize;
 		this.vSize = vSize;
-		coldRestart();
+		coldReset();
 	}
 
 	public void setPage( int page ) {

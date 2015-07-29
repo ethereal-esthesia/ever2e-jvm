@@ -92,7 +92,7 @@ public class Display32x32 extends DisplayWindow {
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
+	public void coldReset() throws HardwareException {
 	}
 
 }

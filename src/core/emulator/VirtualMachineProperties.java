@@ -7,9 +7,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
 
-import peripherals.SlotLayout;
-
-
 public class VirtualMachineProperties {
 
 	public static enum MachineLayoutType {
@@ -23,10 +20,9 @@ public class VirtualMachineProperties {
 
 	private Properties properties;
 	private MachineLayoutType layout;
-	private SlotLayout[] slotLayout = new SlotLayout[7];
+	private String[] slotLayout = new String[7];
 	private int programStart;
 	private byte[] program;
-	private byte[][] slotRom = new byte[7][];
 	
 	public VirtualMachineProperties( String propertiesFileName ) throws IOException {
 		if( !propertiesFileName.substring(propertiesFileName.length()-4).equalsIgnoreCase(EMU_EXTENSION) )
@@ -52,18 +48,8 @@ public class VirtualMachineProperties {
 		}
 		for( Integer i = 1; i<=7; i++ ) {
 			String layoutStr = properties.getProperty("machine.layout.slot."+i, null);
-			slotRom[i-1] = null;
-			if( layoutStr!=null && layoutStr.length()>0 ) {
-				slotLayout[i-1] = SlotLayout.valueOf(layoutStr);
-				fileName = properties.getProperty("binary.file.slot."+i);
-				try {
-					binStream = new FileInputStream(propertiesFile.getParent()+"/"+fileName);
-				} catch ( FileNotFoundException e ) {
-					binStream = new FileInputStream(fileName);
-				}
-				slotRom[i-1] = new byte[0x100];
-				binStream.read(slotRom[i-1], 0, 0x100);
-			}
+			if( layoutStr!=null && layoutStr.length()>0 )
+				slotLayout[i-1] = layoutStr;
 		}
 	}
 	public MachineLayoutType getLayout() {
@@ -75,11 +61,8 @@ public class VirtualMachineProperties {
 	public byte[] getCode() {
 		return program;
 	}
-	public SlotLayout getSlotLayout( int slot ) {
+	public String getSlotLayout( int slot ) {
 		return slotLayout[slot-1];
-	}
-	public byte[] getSlotRom( int slot ) {
-		return slotRom[slot-1];
 	}
 	public String getProperty( String propertyStr ) {
 		return properties.getProperty(propertyStr);

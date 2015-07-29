@@ -1220,7 +1220,7 @@ public class DisplayIIe extends DisplayWindow {
 		frame.setSize(XSIZE+(xOff<<1), YSIZE+(yOff<<1)+frame.getInsets().top);
 		frame.addKeyListener(keyboard);
 		frame.setFocusTraversalKeysEnabled(false);
-		coldRestart();
+		coldReset();
 	}
 
 	private class Canvas32x32 extends Canvas {
@@ -1500,10 +1500,10 @@ public class DisplayIIe extends DisplayWindow {
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
+	public void coldReset() throws HardwareException {
 		lastSwitchIteration = -1;
 		evaluateSwitchChange();
-		tracer.coldRestart();
+		tracer.coldReset();
 		rawDisplay = new BufferedImage[2];
 		bufferPage = 0;
 		paintPage = 1;
@@ -1514,7 +1514,7 @@ public class DisplayIIe extends DisplayWindow {
 		// Randomly position the first scan to simulate an always-on screen
 		int randScans = new Random().nextInt(17030);
 		memory = new Memory8(0x10000);
-		memory.coldRestart();
+		memory.coldReset();
 		for( int i = 0; i<randScans; i++ ) {
 			incSleepCycles(-1);
 			cycle();

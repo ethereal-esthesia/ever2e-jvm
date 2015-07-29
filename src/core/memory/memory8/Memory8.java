@@ -15,7 +15,7 @@ public class Memory8 implements HardwareComponent {
 	}
 
 	@Override
-	public void coldRestart() throws HardwareException {
+	public void coldReset() throws HardwareException {
 		if( size<=0 )
 			throw new HardwareException("Memory size not supported");
 		address = new byte[size];

@@ -15,8 +15,8 @@ public class MemoryBus8 implements HardwareComponent {
 		return memory;
 	}
 
-	public void coldRestart() throws HardwareException {
-		memory.coldRestart();
+	public void coldReset() throws HardwareException {
+		memory.coldReset();
 		for( int i = getMaxAddress()-1; i>=0; i-- ) 
 			memory.setByte(i, 0x00);
 	}
