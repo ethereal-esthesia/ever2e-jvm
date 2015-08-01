@@ -17,9 +17,5 @@ machine.layout.slot.5=
 machine.layout.slot.6=drive.floppy525.Floppy525Controller
 machine.layout.slot.7=
 
-#machine.layout.slot.6.drive.1.file=DISKS/ESDOS.nib
-#machine.layout.slot.6.drive.1.file=DISKS/original332sysmas.nib
 machine.layout.slot.6.drive.1.file=DISKS/TEST.NIB
-#machine.layout.slot.6.drive.1.file=DISKS/dos3.3.nib
-
-machine.layout.slot.6.drive.2.file=DISKS/b.nib
+machine.layout.slot.6.drive.2.file=DISKS/BLANK.NIB

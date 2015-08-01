@@ -38,6 +38,8 @@ Floppy 5.25" disk support
     only NIB format currently supported
     disk for given drive and slot must currently be configured once at
       startup using properties file
+    drive 1/2 supported as well as additional drive cards specified in
+      .emu configuration file
 ROM's externally loaded (place APPLE2E.ROM in "ROMS" folder)
     machine properties files now implemented (see ROMS folder)
     passing an argument to the application specifies the ".emu" properties
