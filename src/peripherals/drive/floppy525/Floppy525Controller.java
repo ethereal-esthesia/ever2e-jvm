@@ -82,31 +82,27 @@ public class Floppy525Controller extends PeripheralIIe {
 	
 	private int slot;
 
-	private boolean[] driveOnPrevious = new boolean[2];
-	
-	private int driveSelect;
-	
-	private boolean[] driveOn = new boolean[2];
-	private int[] driveOffRequest = new int[2];
-	private boolean[] writeOn = new boolean[2];
-
-	private int[] phase = new int[2];
-	
-	private int[] headHalfTrack = new int[2];
-	private int[] headSectorByte = new int[2];
-
-	private boolean[] readOnly = new boolean[2];
-
-	private byte[][] diskImage;
-
-//	private int[] dataShift = new int[2];
-//	private int[] dataSelect = new int[2];
 	private int dataRegister = 0;
 	private int writeRequestRegister = 0;
 	private int writeRegister = -1;
 
-	private boolean[] driveChange = new boolean [2];
+	private boolean driveChange;
 
+	private boolean driveOnPrevious;
+	private int driveSelect;
+	private boolean driveOn;
+	private int driveOffRequest;
+	private boolean writeOn;
+
+	private int[] phase = new int[2];	
+	private int[] headHalfTrack = new int[2];
+	private int[] headSectorByte = new int[2];
+
+	private boolean[] readOnly = new boolean[2];
+	private byte[][] diskImage;
+
+//	private int[] dataShift = new int[2];
+//	private int[] dataSelect = new int[2];
 	private SwitchSet8 switchSet = new SwitchSet8() {
 
 		@Override
@@ -117,80 +113,80 @@ public class Floppy525Controller extends PeripheralIIe {
 			// Drive switch information found in Sather 9-12
 			switch( address&0x000f ) {
 			case 0x00:  // Phase 0 off
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] &= ~PHASE0_MASK;
 					moveHead();
 				}
 				break;
 			case 0x01:  // Phase 0 on
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] |= PHASE0_MASK;
 					moveHead();
 				}
 				break;
 			case 0x02:  // Phase 1 off
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] &= ~PHASE1_MASK;
 					moveHead();
 				}
 				break;
 			case 0x03:  // Phase 1 on
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] |= PHASE1_MASK;
 					moveHead();
 				}
 				break;
 			case 0x04:  // Phase 2 off
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] &= ~PHASE2_MASK;
 					moveHead();
 				}
 				break;
 			case 0x05:  // Phase 2 on
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] |= PHASE2_MASK;
 					moveHead();
 				}
 				break;
 			case 0x06:  // Phase 3 off
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] &= ~PHASE3_MASK;
 					moveHead();
 				}
 				break;
 			case 0x07:  // Phase 3 on
-				if( driveOn[driveSelect] ) {
+				if( driveOn ) {
 					phase[driveSelect] |= PHASE3_MASK;
 					moveHead();
 				}
 				break;
 			case 0x08:  // Drive off
-				if( driveOn[driveSelect] && driveOffRequest[driveSelect]==-1 )
-					driveOffRequest[driveSelect] = 0;
+				if( driveOn && driveOffRequest==-1 )
+					driveOffRequest = 0;
 				break;
 			case 0x09:  // Drive on
-				startDrive(driveSelect);
-				driveOffRequest[driveSelect] = -1;
+				startDrive();
+				driveOffRequest = -1;
 				break;
 			case 0x0a:  // Drive 1 select
-				driveSelect = 0;
+				setDrive(1);
 				break;
 			case 0x0b:  // Drive 2 select
-				driveSelect = 1;
+				setDrive(2);
 				break;
 			case 0x0c:  // Poll read / set up reading
-				if( writeOn[driveSelect] )
+				if( writeOn )
 					writeRegister = writeRequestRegister;
 				break;
 			case 0x0d:  // Load (needed for writes)
 				break;
 			case 0x0e:  // Read
-				writeOn[driveSelect] = false;
-				if( driveOn[driveSelect] )
+				writeOn = false;
+				if( driveOn )
 					msb = readOnly[driveSelect];
 				break;
 			case 0x0f:  // Write
-				writeOn[driveSelect] = true;
+				writeOn = true;
 				break;
 			}
 			displayDriveStatus();
@@ -216,25 +212,24 @@ public class Floppy525Controller extends PeripheralIIe {
 				else if( headHalfTrack[driveSelect]>=TRACK_TOTAL<<1 )
 					headHalfTrack[driveSelect] = (TRACK_TOTAL<<1)-1;
 				if( currentTrack!=headHalfTrack[driveSelect] )
-					System.out.println("Slot "+slot+", drive "+(driveSelect+1)+", track "+headHalfTrack[driveSelect]/2d+" selected");
+					System.out.println("Slot "+slot+", drive "+getDrive()+", track "+headHalfTrack[driveSelect]/2d+" selected");
 			}
 		}
 
 		@Override
 		public void writeMem( int address, int value ){
-			if( ((address&0x000f)==0x000d || (address&0x000f)==0x000f) && driveOn[driveSelect] ) 
+			if( ((address&0x000f)==0x000d || (address&0x000f)==0x000f) && driveOn ) 
 				writeRequestRegister = value;
-			driveChange[driveSelect] = true;
+			driveChange = true;
 			readMem(address);
 		}
 
 		@Override
 		public void warmReset() {
 			driveSelect = 0;
-			killDrive(0);
-			killDrive(1);
-			writeOn[1] = false;
-			writeOn[1] = false;
+			killDrive();
+			writeOn = false;
+			writeOn = false;
 			displayDriveStatus();
 		}
 
@@ -242,10 +237,10 @@ public class Floppy525Controller extends PeripheralIIe {
 
 	private void displayDriveStatus() {
 		for( int drive = 0; drive<2; drive++ )
-			if( driveOnPrevious[drive]!=driveOn[drive] ) {
-				System.out.println("Slot "+slot+", drive "+(driveSelect+1)+" "+
-						(driveOn[drive] ? "started":"stopped"));
-				driveOnPrevious[drive] = driveOn[drive];
+			if( driveOnPrevious!=driveOn ) {
+				System.out.println("Slot "+slot+", drive "+(drive+1)+" "+
+						(driveOn ? "started":"stopped"));
+				driveOnPrevious = driveOn;
 			}
 	}
 
@@ -254,11 +249,10 @@ public class Floppy525Controller extends PeripheralIIe {
 		this.slot = slot;
 		fileName[0] = properties.getProperty("machine.layout.slot."+slot+".drive.1.file", null);
 		fileName[1] = properties.getProperty("machine.layout.slot."+slot+".drive.2.file", null);
-		driveOnPrevious[driveSelect] = false;
+		driveOnPrevious = false;
 		headHalfTrack[0] = 69;
 		headHalfTrack[1] = 69;
-		driveOffRequest[0] = -1;
-		driveOffRequest[1] = -1;
+		driveOffRequest = -1;
 		coldReset();
 	}
 
@@ -277,7 +271,7 @@ public class Floppy525Controller extends PeripheralIIe {
 
 		incSleepCycles(4);
 
-		if( driveOn[driveSelect] ){
+		if( driveOn ){
 			dataSelect[driveSelect] <<= 1;
 			dataSelect[driveSelect] &= 0xffff;
 			dataShift[driveSelect]++;
@@ -297,17 +291,17 @@ public class Floppy525Controller extends PeripheralIIe {
 		}
 */		
 
-		incSleepCycles(32);
-
-		if( driveOn[driveSelect] ) {
+		if( driveOn ) {
 			headSectorByte[driveSelect]++;
 			if( headSectorByte[driveSelect]==TRACK_BYTES )
 				headSectorByte[driveSelect] = 0;
-			if( !writeOn[driveSelect] ) {
+			if( !writeOn ) {
 				dataRegister = Byte.toUnsignedInt(
 						diskImage[headHalfTrack[driveSelect]>>1][headSectorByte[driveSelect]]);
 			}
 		}
+
+		incSleepCycles(dataRegister==0xff||writeRegister==0xff ? 32/*36*/:32);
 
 		if( writeRegister>=0 ) {
 			diskImage[headHalfTrack[driveSelect]>>1][headSectorByte[driveSelect]] =
@@ -316,10 +310,10 @@ public class Floppy525Controller extends PeripheralIIe {
 		}
 		
 		for( int drive = 0; drive<2; drive++ ) {
-			if( driveOffRequest[drive]>=0 &&
-					driveOffRequest[drive]++==0x40000>>3 ) {
-				driveOffRequest[drive] = -1;
-				killDrive(drive);
+			if( driveOffRequest>=0 &&
+					driveOffRequest++==0x40000>>3 ) {
+				driveOffRequest = -1;
+				killDrive();
 			}
 		}
 
@@ -403,23 +397,38 @@ public class Floppy525Controller extends PeripheralIIe {
 
 	}
 
-	private void startDrive( int drive ) {
-		if( driveOn[drive] )
+	private void setDrive( int drive ) {
+		if( drive-1==driveSelect )
 			return;
-		driveOn[drive] = true;
+		if( driveOn ) {
+			killDrive();
+			driveSelect = drive-1;
+			startDrive();
+		} else
+			driveSelect = drive-1;
+	}
+
+	public int getDrive() {
+		return driveSelect+1;
+	}
+
+	private void startDrive() {
+		if( driveOn )
+			return;
+		driveOn = true;
 		displayDriveStatus();
-		loadImage(drive);
+		loadImage(driveSelect);
 	}
 		
-	private void killDrive( int drive ) {
-		if( !driveOn[drive] )
+	private void killDrive() {
+		if( !driveOn )
 			return;
-		driveOn[drive] = false;
+		driveOn = false;
 		displayDriveStatus();
-		if( !driveChange[drive] )
+		if( !driveChange )
 			return;
-		driveChange[drive] = false;
-		saveImage(drive);
+		driveChange = false;
+		saveImage(driveSelect);
 	}
 
 	@Override
@@ -427,14 +436,6 @@ public class Floppy525Controller extends PeripheralIIe {
 		return ROM;
 	}
 	
-	public int getDrive() {
-		return driveSelect+1;
-	}
-
-	public void setDrive( int drive ) {
-		driveSelect = drive-1;
-	}
-
 	@Override
 	public String toString() {
 		return "Floppy 5.25\" Disk II Controller";
