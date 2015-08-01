@@ -86,11 +86,11 @@ public class Floppy525Controller extends PeripheralIIe {
 	private int writeRequestRegister = 0;
 	private int writeRegister = -1;
 
-	private boolean driveChange;
+	private boolean driveWrite;
 
+	private boolean driveOn;
 	private boolean driveOnPrevious;
 	private int driveSelect;
-	private boolean driveOn;
 	private int driveOffRequest;
 	private boolean writeOn;
 
@@ -189,7 +189,6 @@ public class Floppy525Controller extends PeripheralIIe {
 				writeOn = true;
 				break;
 			}
-			displayDriveStatus();
 			
 			int data = msb==null ? dataRegister:( msb ? dataRegister|0x80:dataRegister&0x7f );
 			if( (dataRegister&0x80)!=0 )
@@ -220,28 +219,26 @@ public class Floppy525Controller extends PeripheralIIe {
 		public void writeMem( int address, int value ){
 			if( ((address&0x000f)==0x000d || (address&0x000f)==0x000f) && driveOn ) 
 				writeRequestRegister = value;
-			driveChange = true;
+			driveWrite = true;
 			readMem(address);
 		}
 
 		@Override
 		public void warmReset() {
-			driveSelect = 0;
+			setDrive(0);
 			killDrive();
 			writeOn = false;
 			writeOn = false;
-			displayDriveStatus();
 		}
 
 	};
 
 	private void displayDriveStatus() {
-		for( int drive = 0; drive<2; drive++ )
-			if( driveOnPrevious!=driveOn ) {
-				System.out.println("Slot "+slot+", drive "+(drive+1)+" "+
-						(driveOn ? "started":"stopped"));
-				driveOnPrevious = driveOn;
-			}
+		if( driveOnPrevious!=driveOn ) {
+			System.out.println("Slot "+slot+", drive "+getDrive()+" "+
+					(driveOn ? "started":"stopped"));
+			driveOnPrevious = driveOn;
+		}
 	}
 
 	public Floppy525Controller( int slot, long unitsPerCycle, VirtualMachineProperties properties ) throws IOException, HardwareException {
@@ -418,6 +415,7 @@ public class Floppy525Controller extends PeripheralIIe {
 		driveOn = true;
 		displayDriveStatus();
 		loadImage(driveSelect);
+		displayDriveStatus();
 	}
 		
 	private void killDrive() {
@@ -425,9 +423,9 @@ public class Floppy525Controller extends PeripheralIIe {
 			return;
 		driveOn = false;
 		displayDriveStatus();
-		if( !driveChange )
+		if( !driveWrite )
 			return;
-		driveChange = false;
+		driveWrite = false;
 		saveImage(driveSelect);
 	}
 

@@ -49,7 +49,6 @@ CPU with accurate cycle timing, synced with emulated monitor refresh rate
 Memory bus
 	missing paddle
 	missing cassette switches or stand-ins
-	missing slot card methods and low-memory read routines
 Text / graphics modes with accurate color and pixel offset
 Key input matches IIe behavior and timing
 Shift-insert or shift-F2 pastes contents of clipboard
