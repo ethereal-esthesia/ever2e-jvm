@@ -200,9 +200,13 @@ public class KeyboardIIe extends Keyboard {
 		
 		//System.out.println(KeyEvent.getKeyText(keyIndex)+" "+keyIndex+" "+event.getModifiers());
 
-		// Workaround for shift mistaken as caps-key AWT bug
-		if( keyIndex==KeyEvent.VK_CAPS_LOCK && (keyModifiers&Event.SHIFT_MASK)!=0 )
-			keyIndex = KeyEvent.VK_SHIFT;
+		// Workaround for action keys mistaken as caps-key AWT bug
+		if( keyIndex==KeyEvent.VK_CAPS_LOCK ) { 
+			if( (keyModifiers&Event.SHIFT_MASK)!=0 )
+				modifierSet |= KEY_MASK_SHIFT;
+			if( (keyModifiers&Event.CTRL_MASK)!=0 )
+				modifierSet |= KEY_MASK_CTRL;
+		}
 		
 		switch( keyIndex ) {
 

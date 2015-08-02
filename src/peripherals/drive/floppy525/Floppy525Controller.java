@@ -225,7 +225,7 @@ public class Floppy525Controller extends PeripheralIIe {
 
 		@Override
 		public void warmReset() {
-			setDrive(0);
+			setDrive(1);
 			killDrive();
 			writeOn = false;
 			writeOn = false;
