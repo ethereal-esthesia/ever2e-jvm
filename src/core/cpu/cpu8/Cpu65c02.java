@@ -711,7 +711,6 @@ public class Cpu65c02 extends HardwareManager {
 					value = regA + valAdd;
 					value++;
 					reg.testPCZN(value);
-					reg.testP(((regA^value)&(valAdd^value)&0x80)!=0, StatusRegister.V);
 				}
 				break;
 			
@@ -725,7 +724,6 @@ public class Cpu65c02 extends HardwareManager {
 					value = regX + valAdd;
 					value++;
 					reg.testPCZN(value);
-					reg.testP(((regX^value)&(valAdd^value)&0x80)!=0, StatusRegister.V);
 				}
 				break;
 	
@@ -738,7 +736,6 @@ public class Cpu65c02 extends HardwareManager {
 					value = regY + valAdd;
 					value++;
 					reg.testPCZN(value);
-					reg.testP(((regY^value)&(valAdd^value)&0x80)!=0, StatusRegister.V);
 				}
 				break;
 	
@@ -972,6 +969,7 @@ public class Cpu65c02 extends HardwareManager {
 				newPc = popStack();
 				newPc |= popStack() << 8;
 				newPc++;
+				newPc &= 0xffff;
 				break;
 	
 			case SBC:
