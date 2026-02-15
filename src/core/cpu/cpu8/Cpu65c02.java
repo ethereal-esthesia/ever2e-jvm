@@ -41,6 +41,7 @@ public class Cpu65c02 extends HardwareManager {
 
 	private Opcode interruptPending;
 	private boolean isHalted;
+	private Integer resetPOverride;
 	
 	private static final int STACK_PAGE = 0x100;
 	
@@ -429,6 +430,7 @@ public class Cpu65c02 extends HardwareManager {
 		interruptPending = null;
 		newOpcode = INTERRUPT_RES;
 		cycleCount = INTERRUPT_RES.getCycleTime();
+		resetPOverride = null;
 		
 		memory.coldReset();
 		
@@ -1131,6 +1133,9 @@ public class Cpu65c02 extends HardwareManager {
 	pushStack(0x00);
 				reg.setP(StatusRegister.I);    // Set interrupt disable
 				reg.clearP(StatusRegister.D);  // Clear decimal flag
+				if( resetPOverride!=null ) {
+					reg.setP(resetPOverride);
+				}
 				newPc = memory.getWord16LittleEndian(INT_RES_VECTOR_ADDR);
 				isHalted = false;
 				break;
@@ -1328,6 +1333,18 @@ public class Cpu65c02 extends HardwareManager {
 
 	public Opcode getOpcode() {
 		return opcode;
+	}
+
+	public Opcode getPendingOpcode() {
+		return newOpcode;
+	}
+
+	public int getPendingPC() {
+		return newPc;
+	}
+
+	public void setResetPOverride(Integer p) {
+		resetPOverride = p==null ? null : (p&0xff);
 	}
 
 }

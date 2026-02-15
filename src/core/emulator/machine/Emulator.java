@@ -9,6 +9,9 @@ public class Emulator {
 	public static interface StepListener {
 		void onStep( long step, HardwareManager manager );
 	}
+	public static interface StepPhaseListener {
+		void onStepPhase( long step, HardwareManager manager, boolean preCycle );
+	}
 
 	protected PriorityQueue<HardwareManager> hardwareManagerQueue;
 	protected int granularityBitsPerSecond;
@@ -29,6 +32,13 @@ public class Emulator {
 	}
 
 	public long start( long maxSteps, HardwareManager stepManager, StepListener stepListener ) throws HardwareException, InterruptedException {
+		return startWithStepPhases(maxSteps, stepManager, stepListener==null ? null : (step, manager, preCycle) -> {
+			if( !preCycle )
+				stepListener.onStep(step, manager);
+		});
+	}
+
+	public long startWithStepPhases( long maxSteps, HardwareManager stepManager, StepPhaseListener stepPhaseListener ) throws HardwareException, InterruptedException {
 		long timer = System.currentTimeMillis();
 		long oldTime = timer;
 		long steps = 0;
@@ -46,11 +56,15 @@ public class Emulator {
 				if( waitTime>0 )
 					Thread.sleep(waitTime);
 			}
-			nextManager.cycle();
 			if( maxSteps>=0 && nextManager==stepManager ) {
 				steps++;
-				if( stepListener!=null )
-					stepListener.onStep(steps, nextManager);
+				if( stepPhaseListener!=null )
+					stepPhaseListener.onStepPhase(steps, nextManager, true);
+			}
+			nextManager.cycle();
+			if( maxSteps>=0 && nextManager==stepManager ) {
+				if( stepPhaseListener!=null )
+					stepPhaseListener.onStepPhase(steps, nextManager, false);
 				if( steps>=maxSteps ) {
 					hardwareManagerQueue.add(nextManager);
 					break;

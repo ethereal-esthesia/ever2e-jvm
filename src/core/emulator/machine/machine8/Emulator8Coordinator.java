@@ -33,11 +33,30 @@ public class Emulator8Coordinator {
 	private static final String DEFAULT_MACHINE = "ROMS/Apple2e.emu";
 	private static final int GRANULARITY_BITS_PER_MS = 32;
 
+	private static int parseByteArg(String value, String argName) {
+		String raw = value.trim();
+		int parsed;
+		if( raw.toLowerCase().startsWith("0x") ) {
+			parsed = Integer.parseInt(raw.substring(2), 16);
+		}
+		else if( raw.matches("^[0-9A-Fa-f]{1,2}$") && raw.matches(".*[A-Fa-f].*") ) {
+			parsed = Integer.parseInt(raw, 16);
+		}
+		else {
+			parsed = Integer.parseInt(raw, 10);
+		}
+		if( parsed<0 || parsed>0xff )
+			throw new IllegalArgumentException(argName+" must be in [0..255], got "+value);
+		return parsed;
+	}
+
 	public static void main( String[] argList ) throws HardwareException, InterruptedException, IOException {
 
 		String propertiesFile = DEFAULT_MACHINE;
 		long maxCpuSteps = -1;
 		String traceFile = null;
+		String tracePhase = "pre";
+		Integer resetPFlagValue = null;
 		for( int i = 0; i<argList.length; i++ ) {
 			String arg = argList[i];
 			if( "--steps".equals(arg) ) {
@@ -56,10 +75,32 @@ public class Emulator8Coordinator {
 			else if( arg.startsWith("--trace-file=") ) {
 				traceFile = arg.substring("--trace-file=".length());
 			}
+			else if( "--trace-phase".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --trace-phase");
+				tracePhase = argList[++i];
+			}
+			else if( arg.startsWith("--trace-phase=") ) {
+				tracePhase = arg.substring("--trace-phase=".length());
+			}
+			else if( "--post".equals(arg) ) {
+				tracePhase = "post";
+			}
+			else if( "--reset-pflag-value".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --reset-pflag-value");
+				resetPFlagValue = parseByteArg(argList[++i], "--reset-pflag-value");
+			}
+			else if( arg.startsWith("--reset-pflag-value=") ) {
+				resetPFlagValue = parseByteArg(arg.substring("--reset-pflag-value=".length()), "--reset-pflag-value");
+			}
 			else {
 				propertiesFile = arg;
 			}
 		}
+		tracePhase = tracePhase.trim().toLowerCase();
+		if( !"pre".equals(tracePhase) && !"post".equals(tracePhase) )
+			throw new IllegalArgumentException("Unsupported --trace-phase value: "+tracePhase+" (expected pre or post)");
 		System.out.println("Loading \""+propertiesFile+"\" into memory");
 		VirtualMachineProperties properties = new VirtualMachineProperties(propertiesFile);
 
@@ -209,6 +250,8 @@ public class Emulator8Coordinator {
 
 		System.out.println("");
 	   	Emulator emulator = new Emulate65c02(hardwareManagerQueue, GRANULARITY_BITS_PER_MS);
+	   	if( resetPFlagValue!=null )
+	   		cpu.setResetPOverride(resetPFlagValue);
 	   	if( maxCpuSteps>=0 ) {
 	   		PrintWriter traceWriter = null;
 	   		if( traceFile!=null ) {
@@ -216,12 +259,36 @@ public class Emulator8Coordinator {
 	   			traceWriter.println("step,event_type,event,pc,opcode,a,x,y,p,s,mnemonic,mode");
 	   		}
 	   		final PrintWriter finalTraceWriter = traceWriter;
-	   		long steps = emulator.start(maxCpuSteps, cpu, (step, manager) -> {
+	   		final String finalTracePhase = tracePhase;
+	   		long steps = emulator.startWithStepPhases(maxCpuSteps, cpu, (step, manager, preCycle) -> {
 	   			if( finalTraceWriter==null )
 	   				return;
-	   			Opcode opcode = cpu.getOpcode();
-	   			String mnemonic = opcode.getMnemonic()==null ? "" : opcode.getMnemonic().toString().trim();
-	   			boolean isResetEvent = "RES".equals(mnemonic);
+	   			if( "pre".equals(finalTracePhase) && !preCycle )
+	   				return;
+	   			if( "post".equals(finalTracePhase) && preCycle )
+	   				return;
+	   			Opcode opcode;
+	   			int pc;
+	   			boolean isResetEvent;
+	   			if( "pre".equals(finalTracePhase) ) {
+	   				opcode = cpu.getPendingOpcode();
+	   				pc = cpu.getPendingPC();
+	   				String mnemonic = opcode.getMnemonic()==null ? "" : opcode.getMnemonic().toString().trim();
+	   				isResetEvent = "RES".equals(mnemonic);
+	   			}
+	   			else {
+	   				Opcode executedOpcode = cpu.getOpcode();
+	   				String executedMnemonic = executedOpcode.getMnemonic()==null ? "" : executedOpcode.getMnemonic().toString().trim();
+	   				isResetEvent = "RES".equals(executedMnemonic);
+	   				if( isResetEvent ) {
+	   					opcode = executedOpcode;
+	   					pc = cpu.getRegister().getPC();
+	   				}
+	   				else {
+	   					opcode = cpu.getPendingOpcode();
+	   					pc = cpu.getPendingPC();
+	   				}
+	   			}
 	   			String eventType = isResetEvent ? "event":"instr";
 	   			String event = isResetEvent ? "RESET":"";
 	   			Integer machineCode = opcode.getMachineCode();
@@ -229,7 +296,7 @@ public class Emulator8Coordinator {
 	   					step + "," +
 	   					eventType + "," +
 	   					event + "," +
-	   					Cpu65c02.getHexString(cpu.getRegister().getPC(), 4) + "," +
+	   					Cpu65c02.getHexString(pc, 4) + "," +
 	   					(machineCode==null?"--":Cpu65c02.getHexString(machineCode, 2)) + "," +
 	   					Cpu65c02.getHexString(cpu.getRegister().getA(), 2) + "," +
 	   					Cpu65c02.getHexString(cpu.getRegister().getX(), 2) + "," +
