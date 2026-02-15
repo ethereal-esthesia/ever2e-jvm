@@ -1344,7 +1344,7 @@ public class Cpu65c02 extends HardwareManager {
 	}
 
 	public void setResetPOverride(Integer p) {
-		resetPOverride = p==null ? null : (p&0xff);
+		resetPOverride = p==null ? null : ((p|0x30)&0xff);
 	}
 
 }

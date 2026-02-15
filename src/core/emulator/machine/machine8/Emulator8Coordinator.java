@@ -89,10 +89,10 @@ public class Emulator8Coordinator {
 			else if( "--reset-pflag-value".equals(arg) ) {
 				if( i+1>=argList.length )
 					throw new IllegalArgumentException("Missing value for --reset-pflag-value");
-				resetPFlagValue = parseByteArg(argList[++i], "--reset-pflag-value");
+				resetPFlagValue = parseByteArg(argList[++i], "--reset-pflag-value") | 0x30;
 			}
 			else if( arg.startsWith("--reset-pflag-value=") ) {
-				resetPFlagValue = parseByteArg(arg.substring("--reset-pflag-value=".length()), "--reset-pflag-value");
+				resetPFlagValue = parseByteArg(arg.substring("--reset-pflag-value=".length()), "--reset-pflag-value") | 0x30;
 			}
 			else {
 				propertiesFile = arg;
