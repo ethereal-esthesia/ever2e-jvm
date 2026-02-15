@@ -1,15 +1,17 @@
 package core.emulator.machine.machine8;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.FileWriter;
+import java.awt.GraphicsEnvironment;
 import java.text.DecimalFormat;
 import java.util.PriorityQueue;
-
-import javax.sound.sampled.LineUnavailableException;
 
 import org.junit.Test;
 
 import peripherals.PeripheralIIe;
 import core.cpu.cpu8.Cpu65c02;
+import core.cpu.cpu8.Opcode;
 import core.emulator.HardwareManager;
 import core.emulator.VirtualMachineProperties;
 import core.emulator.VirtualMachineProperties.MachineLayoutType;
@@ -33,11 +35,31 @@ public class Emulator8Coordinator {
 
 	public static void main( String[] argList ) throws HardwareException, InterruptedException, IOException {
 
-		String propertiesFile;
-		if( argList.length==0 )
-			propertiesFile = DEFAULT_MACHINE;
-		else
-			propertiesFile = argList[0];
+		String propertiesFile = DEFAULT_MACHINE;
+		long maxCpuSteps = -1;
+		String traceFile = null;
+		for( int i = 0; i<argList.length; i++ ) {
+			String arg = argList[i];
+			if( "--steps".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --steps");
+				maxCpuSteps = Long.parseLong(argList[++i]);
+			}
+			else if( arg.startsWith("--steps=") ) {
+				maxCpuSteps = Long.parseLong(arg.substring("--steps=".length()));
+			}
+			else if( "--trace-file".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --trace-file");
+				traceFile = argList[++i];
+			}
+			else if( arg.startsWith("--trace-file=") ) {
+				traceFile = arg.substring("--trace-file=".length());
+			}
+			else {
+				propertiesFile = arg;
+			}
+		}
 		System.out.println("Loading \""+propertiesFile+"\" into memory");
 		VirtualMachineProperties properties = new VirtualMachineProperties(propertiesFile);
 
@@ -102,13 +124,18 @@ public class Emulator8Coordinator {
 			hardwareManagerQueue.add(cpu = new Cpu65c02((MemoryBusIIe) bus, (long) (unitsPerCycle/cpuMultiplier)));
 			cpu.coldReset();
 			keyboard = new KeyboardIIe((long) (unitsPerCycle/keyActionMultiplier), cpu);
-			//hardwareManagerQueue.add(new DisplayConsoleAppleIIe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier)));
-			DisplayIIe display = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
-			hardwareManagerQueue.add(display);
+			DisplayIIe display = null;
+			if( GraphicsEnvironment.isHeadless() ) {
+				System.out.println("Running headless: display output disabled");
+			}
+			else {
+				display = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
+				hardwareManagerQueue.add(display);
+			}
 			try {
 				hardwareManagerQueue.add(new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS));
-			} catch (LineUnavailableException e) {
-				e.printStackTrace();
+			} catch (Exception e) {
+				System.out.println("Warning: Speaker initialization unavailable: " + e.getClass().getSimpleName());
 			}
 			((MemoryBusIIe) bus).setKeyboard(keyboard);
 			((MemoryBusIIe) bus).setDisplay(display);
@@ -182,8 +209,47 @@ public class Emulator8Coordinator {
 
 		System.out.println("");
 	   	Emulator emulator = new Emulate65c02(hardwareManagerQueue, GRANULARITY_BITS_PER_MS);
-	   	emulator.start();
-		System.out.println("Done");
+	   	if( maxCpuSteps>=0 ) {
+	   		PrintWriter traceWriter = null;
+	   		if( traceFile!=null ) {
+	   			traceWriter = new PrintWriter(new FileWriter(traceFile));
+	   			traceWriter.println("step,pc,opcode,a,x,y,p,s,mnemonic,mode");
+	   		}
+	   		final PrintWriter finalTraceWriter = traceWriter;
+	   		long steps = emulator.start(maxCpuSteps, cpu, (step, manager) -> {
+	   			if( finalTraceWriter==null )
+	   				return;
+	   			Opcode opcode = cpu.getOpcode();
+	   			Integer machineCode = opcode.getMachineCode();
+	   			finalTraceWriter.println(
+	   					step + "," +
+	   					Cpu65c02.getHexString(cpu.getRegister().getPC(), 4) + "," +
+	   					(machineCode==null?"--":Cpu65c02.getHexString(machineCode, 2)) + "," +
+	   					Cpu65c02.getHexString(cpu.getRegister().getA(), 2) + "," +
+	   					Cpu65c02.getHexString(cpu.getRegister().getX(), 2) + "," +
+	   					Cpu65c02.getHexString(cpu.getRegister().getY(), 2) + "," +
+	   					Cpu65c02.getHexString(cpu.getRegister().getP(), 2) + "," +
+	   					Cpu65c02.getHexString(cpu.getRegister().getS(), 2) + "," +
+	   					opcode.getMnemonic() + "," +
+	   					opcode.getAddressMode()
+	   			);
+	   		});
+	   		if( traceWriter!=null )
+	   			traceWriter.close();
+			System.out.println("Stopped after "+steps+" CPU steps");
+			System.out.println("PC="+Cpu65c02.getHexString(cpu.getRegister().getPC(), 4)+
+					" A="+Cpu65c02.getHexString(cpu.getRegister().getA(), 2)+
+					" X="+Cpu65c02.getHexString(cpu.getRegister().getX(), 2)+
+					" Y="+Cpu65c02.getHexString(cpu.getRegister().getY(), 2)+
+					" P="+Cpu65c02.getHexString(cpu.getRegister().getP(), 2)+
+					" S="+Cpu65c02.getHexString(cpu.getRegister().getS(), 2));
+			if( traceFile!=null )
+				System.out.println("Trace written: "+traceFile);
+	   	}
+	   	else {
+	   		emulator.start();
+			System.out.println("Done");
+	   	}
 
 	}
 

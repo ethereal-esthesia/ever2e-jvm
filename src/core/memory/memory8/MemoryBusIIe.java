@@ -318,7 +318,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
-			switchBank1.resetState();
+			switchBank1.setState();
 			switchHRamRd.setState();
 			switchPreWrite.resetState();
 			switchHRamWrt.resetState();
@@ -332,7 +332,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
-			switchBank1.resetState();
+			switchBank1.setState();
 			switchHRamRd.resetState();
 			if( switchPreWrite.getState() )
 				switchHRamWrt.setState();
@@ -348,7 +348,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
-			switchBank1.resetState();
+			switchBank1.setState();
 			switchHRamRd.resetState();
 			switchPreWrite.resetState();
 			switchHRamWrt.resetState();
@@ -362,7 +362,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
-			switchBank1.resetState();
+			switchBank1.setState();
 			switchHRamRd.setState();
 			if( switchPreWrite.getState() )
 				switchHRamWrt.setState();

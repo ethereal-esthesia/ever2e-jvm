@@ -1,6 +1,7 @@
 package device.keyboard;
 
 import java.awt.Event;
+import java.awt.HeadlessException;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -23,8 +24,8 @@ public class KeyboardIIe extends Keyboard {
 
 	private ConcurrentLinkedQueue<Integer> keyEventQueue = new ConcurrentLinkedQueue<>();
 	private Queue<Byte> keyQueue = new LinkedList<>();
-	private Toolkit toolKit = Toolkit.getDefaultToolkit();
-	private Clipboard clipboard = toolKit.getSystemClipboard();
+	private Toolkit toolKit;
+	private Clipboard clipboard;
 
 	private int modifierSet;
 	private int functionKeySet;
@@ -190,6 +191,18 @@ public class KeyboardIIe extends Keyboard {
 		super(unitsPerCycle);
 		coldReset();
 		this.cpu = cpu;
+		try {
+			toolKit = Toolkit.getDefaultToolkit();
+		} catch( HeadlessException e ) {
+			toolKit = null;
+		}
+		if( toolKit!=null ) {
+			try {
+				clipboard = toolKit.getSystemClipboard();
+			} catch( HeadlessException | SecurityException e ) {
+				clipboard = null;
+			}
+		}
 	}
 
 	@Override
@@ -238,7 +251,7 @@ public class KeyboardIIe extends Keyboard {
 
 		default:
 			byte[] keyCodeArray = KEY_MAP.get(keyIndex);
-			boolean capsLockDown = toolKit .getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
+			boolean capsLockDown = isCapsLockDown();
 			modIndex = MOD_MAP[modifierSet|(capsLockDown?KEY_MASK_CAPS:0)];
 			if( keyCodeArray!=null ) {
 				if( !isKeyPressed(keyCodeArray[0]) ) {
@@ -416,7 +429,7 @@ public class KeyboardIIe extends Keyboard {
 			break;
 			
 		case KEY_MASK_F12|KEY_MASK_SHIFT:
-			if( keyQueue.size()==0 ) {
+			if( keyQueue.size()==0 && clipboard!=null ) {
 				Transferable contents = clipboard.getContents(null);
 				char [] pasteContent = null;
 				if( contents!=null && contents.isDataFlavorSupported(DataFlavor.stringFlavor) ) {
@@ -424,7 +437,7 @@ public class KeyboardIIe extends Keyboard {
 						pasteContent = contents.getTransferData(DataFlavor.stringFlavor).toString().toCharArray();
 						for( char c : pasteContent )
 							pushKeyCode(c==0x0a ? 0x0d:c);
-					} catch( UnsupportedFlavorException | IOException e ) {
+					} catch( UnsupportedFlavorException | IOException | IllegalStateException e ) {
 						System.err.println("Warning: unsupported clipboard contents");
 					}
 				}
@@ -442,6 +455,16 @@ public class KeyboardIIe extends Keyboard {
 		isHalted = false;
 		cycleCount = 0;
 		delayCount = 0;
+	}
+
+	private boolean isCapsLockDown() {
+		if( toolKit==null )
+			return false;
+		try {
+			return toolKit.getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
+		} catch( UnsupportedOperationException e ) {
+			return false;
+		}
 	}
 
 }
