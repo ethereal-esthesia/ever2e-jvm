@@ -50,6 +50,23 @@ public class Emulator8Coordinator {
 		return parsed;
 	}
 
+	private static int parseWordArg(String value, String argName) {
+		String raw = value.trim();
+		int parsed;
+		if( raw.toLowerCase().startsWith("0x") ) {
+			parsed = Integer.parseInt(raw.substring(2), 16);
+		}
+		else if( raw.matches("^[0-9A-Fa-f]{1,4}$") && raw.matches(".*[A-Fa-f].*") ) {
+			parsed = Integer.parseInt(raw, 16);
+		}
+		else {
+			parsed = Integer.parseInt(raw, 10);
+		}
+		if( parsed<0 || parsed>0xffff )
+			throw new IllegalArgumentException(argName+" must be in [0..65535], got "+value);
+		return parsed;
+	}
+
 	public static void main( String[] argList ) throws HardwareException, InterruptedException, IOException {
 
 		String propertiesFile = DEFAULT_MACHINE;
@@ -57,6 +74,7 @@ public class Emulator8Coordinator {
 		String traceFile = null;
 		String tracePhase = "pre";
 		Integer resetPFlagValue = null;
+		Integer haltExecution = null;
 		for( int i = 0; i<argList.length; i++ ) {
 			String arg = argList[i];
 			if( "--steps".equals(arg) ) {
@@ -94,7 +112,17 @@ public class Emulator8Coordinator {
 			else if( arg.startsWith("--reset-pflag-value=") ) {
 				resetPFlagValue = parseByteArg(arg.substring("--reset-pflag-value=".length()), "--reset-pflag-value") | 0x30;
 			}
+			else if( "--halt-execution".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --halt-execution");
+				haltExecution = parseWordArg(argList[++i], "--halt-execution");
+			}
+			else if( arg.startsWith("--halt-execution=") ) {
+				haltExecution = parseWordArg(arg.substring("--halt-execution=".length()), "--halt-execution");
+			}
 			else {
+				if( arg.startsWith("-") )
+					throw new IllegalArgumentException("Unknown option: "+arg);
 				propertiesFile = arg;
 			}
 		}
@@ -260,13 +288,43 @@ public class Emulator8Coordinator {
 	   		}
 	   		final PrintWriter finalTraceWriter = traceWriter;
 	   		final String finalTracePhase = tracePhase;
+	   		final Integer finalHaltExecution = haltExecution;
+	   		final boolean[] haltedAtAddress = new boolean[] { false };
 	   		long steps = emulator.startWithStepPhases(maxCpuSteps, cpu, (step, manager, preCycle) -> {
-	   			if( finalTraceWriter==null )
-	   				return;
+	   			if( finalTraceWriter==null && !(preCycle && finalHaltExecution!=null) )
+	   				return true;
+	   			boolean hitStopAddress = preCycle && finalHaltExecution!=null &&
+	   					(cpu.getPendingPC()&0xffff)==(finalHaltExecution&0xffff);
+	   			if( hitStopAddress && !"pre".equals(finalTracePhase) ) {
+	   				haltedAtAddress[0] = true;
+	   				return false;
+	   			}
+	   			if( hitStopAddress && finalTraceWriter!=null && "pre".equals(finalTracePhase) ) {
+	   				Opcode opcode = cpu.getPendingOpcode();
+	   				Integer machineCode = opcode.getMachineCode();
+	   				String mnemonic = opcode.getMnemonic()==null ? "" : opcode.getMnemonic().toString().trim();
+	   				boolean isResetEvent = "RES".equals(mnemonic);
+	   				finalTraceWriter.println(
+	   						step + "," +
+	   						(isResetEvent ? "event":"instr") + "," +
+	   						(isResetEvent ? "RESET":"") + "," +
+	   						Cpu65c02.getHexString(cpu.getPendingPC(), 4) + "," +
+	   						(machineCode==null?"--":Cpu65c02.getHexString(machineCode, 2)) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getA(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getX(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getY(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getP(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getS(), 2) + "," +
+	   						opcode.getMnemonic() + "," +
+	   						opcode.getAddressMode()
+	   				);
+	   				haltedAtAddress[0] = true;
+	   				return false;
+	   			}
 	   			if( "pre".equals(finalTracePhase) && !preCycle )
-	   				return;
+	   				return true;
 	   			if( "post".equals(finalTracePhase) && preCycle )
-	   				return;
+	   				return true;
 	   			Opcode opcode;
 	   			int pc;
 	   			boolean isResetEvent;
@@ -289,27 +347,32 @@ public class Emulator8Coordinator {
 	   					pc = cpu.getPendingPC();
 	   				}
 	   			}
-	   			String eventType = isResetEvent ? "event":"instr";
-	   			String event = isResetEvent ? "RESET":"";
-	   			Integer machineCode = opcode.getMachineCode();
-	   			finalTraceWriter.println(
-	   					step + "," +
-	   					eventType + "," +
-	   					event + "," +
-	   					Cpu65c02.getHexString(pc, 4) + "," +
-	   					(machineCode==null?"--":Cpu65c02.getHexString(machineCode, 2)) + "," +
-	   					Cpu65c02.getHexString(cpu.getRegister().getA(), 2) + "," +
-	   					Cpu65c02.getHexString(cpu.getRegister().getX(), 2) + "," +
-	   					Cpu65c02.getHexString(cpu.getRegister().getY(), 2) + "," +
-	   					Cpu65c02.getHexString(cpu.getRegister().getP(), 2) + "," +
-	   					Cpu65c02.getHexString(cpu.getRegister().getS(), 2) + "," +
-	   					opcode.getMnemonic() + "," +
-	   					opcode.getAddressMode()
-	   			);
+	   			if( finalTraceWriter!=null ) {
+	   				String eventType = isResetEvent ? "event":"instr";
+	   				String event = isResetEvent ? "RESET":"";
+	   				Integer machineCode = opcode.getMachineCode();
+	   				finalTraceWriter.println(
+	   						step + "," +
+	   						eventType + "," +
+	   						event + "," +
+	   						Cpu65c02.getHexString(pc, 4) + "," +
+	   						(machineCode==null?"--":Cpu65c02.getHexString(machineCode, 2)) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getA(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getX(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getY(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getP(), 2) + "," +
+	   						Cpu65c02.getHexString(cpu.getRegister().getS(), 2) + "," +
+	   						opcode.getMnemonic() + "," +
+	   						opcode.getAddressMode()
+	   				);
+	   			}
+	   			return true;
 	   		});
 	   		if( traceWriter!=null )
 	   			traceWriter.close();
 			System.out.println("Stopped after "+steps+" CPU steps");
+			if( haltExecution!=null && haltedAtAddress[0] )
+				System.out.println("Stopped at PC="+Cpu65c02.getHexString(haltExecution, 4));
 			System.out.println("PC="+Cpu65c02.getHexString(cpu.getRegister().getPC(), 4)+
 					" A="+Cpu65c02.getHexString(cpu.getRegister().getA(), 2)+
 					" X="+Cpu65c02.getHexString(cpu.getRegister().getX(), 2)+
