@@ -37,6 +37,8 @@ public class KeyboardIIe extends Keyboard {
 	private boolean isHalted;
 	private int cycleCount;
 	private int delayCount;
+	private long queuedKeyCount;
+	private long consumedQueuedKeyCount;
 	
 	private static final int PRE_REPEAT_FLOP_COUNT = 11;
 	private static final int FLOP_DELAY_CYCLES = 4;
@@ -348,13 +350,18 @@ public class KeyboardIIe extends Keyboard {
 	private boolean isConsumed;
 	
 	public void toggleKeyQueue( boolean consume ) {
-
-		if( keyQueue.size()>0 && consume!=isConsumed ) {
-			if( consume )
+		if( consume ) {
+			// C000 read: present next queued key as a fresh strobe.
+			if( !isConsumed && keyQueue.size()>0 ) {
 				keyCode = (byte) (keyQueue.poll()|0x80);
-			else
-				keyCode = (byte) (keyQueue.peek()|0x80);
-			isConsumed = consume;
+				consumedQueuedKeyCount++;
+				isConsumed = true;
+			}
+		}
+		else if( isConsumed ) {
+			// C010 read/write: clear strobe until next key is consumed from queue.
+			keyCode &= 0x7f;
+			isConsumed = false;
 		}
 
 	}
@@ -374,10 +381,19 @@ public class KeyboardIIe extends Keyboard {
 
 	public void pushKeyCode( int i ) {
 		keyQueue.add((byte) i);
-		if( keyQueue.size()>1 ) {
-			isConsumed = true;
-			toggleKeyQueue(false);
-		}
+		queuedKeyCount++;
+	}
+
+	public long getQueuedKeyCount() {
+		return queuedKeyCount;
+	}
+
+	public long getConsumedQueuedKeyCount() {
+		return consumedQueuedKeyCount;
+	}
+
+	public int getQueuedKeyDepth() {
+		return keyQueue.size();
 	}
 
 	public boolean isOptionKey() {
@@ -455,6 +471,8 @@ public class KeyboardIIe extends Keyboard {
 		isHalted = false;
 		cycleCount = 0;
 		delayCount = 0;
+		queuedKeyCount = 0L;
+		consumedQueuedKeyCount = 0L;
 	}
 
 	private boolean isCapsLockDown() {

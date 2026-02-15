@@ -452,11 +452,10 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
+			boolean vbl = monitor!=null && monitor.isVbl();
 			if( keyboard==null )
-				return monitor.isVbl() ? 0x80:0x00;
-			return monitor.isVbl() ?
-					0x80|keyboard.getTypedKeyCode():
-						0x7f&keyboard.getTypedKeyCode();
+				return vbl ? 0x80:0x00;
+			return vbl ? 0x80|keyboard.getTypedKeyCode():0x7f&keyboard.getTypedKeyCode();
 		}
 
 		@Override

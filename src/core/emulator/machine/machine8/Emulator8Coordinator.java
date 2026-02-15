@@ -26,6 +26,7 @@ import core.memory.memory8.MemoryBusDemo8;
 import core.memory.memory8.MemoryBusIIe;
 import device.display.Display32x32;
 import device.display.Display32x32Console;
+import device.display.DisplayConsoleAppleIIe;
 import device.display.DisplayConsoleDebug;
 import device.display.DisplayIIe;
 import device.display.HeadlessVideoProbe;
@@ -72,6 +73,12 @@ public class Emulator8Coordinator {
 		return parsed;
 	}
 
+	private static void queueBasicText(KeyboardIIe keyboard, String source, String basicText) {
+		for( char c : basicText.toCharArray() )
+			keyboard.pushKeyCode(c==0x0a ? 0x0d:c);
+		System.out.println("Queued BASIC paste from "+source+" ("+basicText.length()+" chars)");
+	}
+
 	public static void main( String[] argList ) throws HardwareException, InterruptedException, IOException {
 
 		String propertiesFile = DEFAULT_MACHINE;
@@ -79,9 +86,11 @@ public class Emulator8Coordinator {
 		String traceFile = null;
 		String tracePhase = "pre";
 		Integer traceStartPc = null;
+		boolean textConsole = false;
 		Integer resetPFlagValue = null;
 		Integer haltExecution = null;
 		String basicFile = null;
+		String basicText = null;
 		for( int i = 0; i<argList.length; i++ ) {
 			String arg = argList[i];
 			if( "--steps".equals(arg) ) {
@@ -110,6 +119,9 @@ public class Emulator8Coordinator {
 			}
 			else if( "--post".equals(arg) ) {
 				tracePhase = "post";
+			}
+			else if( "--text-console".equals(arg) ) {
+				textConsole = true;
 			}
 			else if( "--trace-start-pc".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -218,7 +230,12 @@ public class Emulator8Coordinator {
 			cpu.coldReset();
 			keyboard = new KeyboardIIe((long) (unitsPerCycle/keyActionMultiplier), cpu);
 			VideoSignalSource display = null;
-			if( GraphicsEnvironment.isHeadless() ) {
+			if( textConsole ) {
+				headlessProbe = new HeadlessVideoProbe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier));
+				display = headlessProbe;
+				hardwareManagerQueue.add(new DisplayConsoleAppleIIe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier)));
+			}
+			else if( GraphicsEnvironment.isHeadless() ) {
 				System.out.println("Running headless: using headless video probe");
 				headlessProbe = new HeadlessVideoProbe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier));
 				display = headlessProbe;
@@ -300,10 +317,7 @@ public class Emulator8Coordinator {
 		if( basicFile!=null ) {
 			if( keyboard==null )
 				throw new IllegalArgumentException("--basic-file requires a machine layout with KeyboardIIe");
-			String basicText = Files.readString(Path.of(basicFile), StandardCharsets.UTF_8);
-			for( char c : basicText.toCharArray() )
-				keyboard.pushKeyCode(c==0x0a ? 0x0d:c);
-			System.out.println("Queued BASIC paste from "+basicFile+" ("+basicText.length()+" chars)");
+			basicText = Files.readString(Path.of(basicFile), StandardCharsets.UTF_8);
 		}
 
 	   	DecimalFormat format = new DecimalFormat("0.######E0");
@@ -327,9 +341,17 @@ public class Emulator8Coordinator {
 	   		final Integer finalTraceStartPc = traceStartPc;
 	   		final Integer finalHaltExecution = haltExecution;
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
+	   		final KeyboardIIe finalKeyboard = keyboard;
 	   		final boolean[] haltedAtAddress = new boolean[] { false };
 	   		final boolean[] traceStarted = new boolean[] { finalTraceStartPc==null };
+	   		final String finalBasicFile = basicFile;
+	   		final String finalBasicText = basicText;
+	   		final boolean[] basicQueued = new boolean[] { finalBasicText==null };
 	   		long steps = emulator.startWithStepPhases(maxCpuSteps, cpu, (step, manager, preCycle) -> {
+	   			if( !basicQueued[0] && manager==cpu && preCycle ) {
+	   				queueBasicText(finalKeyboard, finalBasicFile, finalBasicText);
+	   				basicQueued[0] = true;
+	   			}
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
 	   				Opcode executed = cpu.getOpcode();
 	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
@@ -429,12 +451,24 @@ public class Emulator8Coordinator {
 					" Y="+Cpu65c02.getHexString(cpu.getRegister().getY(), 2)+
 					" P="+Cpu65c02.getHexString(cpu.getRegister().getP(), 2)+
 					" S="+Cpu65c02.getHexString(cpu.getRegister().getS(), 2));
+			if( basicFile!=null && keyboard!=null )
+				System.out.println("basic_queue queued="+keyboard.getQueuedKeyCount()+
+						" consumed="+keyboard.getConsumedQueuedKeyCount()+
+						" remaining="+keyboard.getQueuedKeyDepth());
 			if( traceFile!=null )
 				System.out.println("Trace written: "+traceFile);
 	   	}
 	   	else {
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
+	   		final KeyboardIIe finalKeyboard = keyboard;
+	   		final String finalBasicFile = basicFile;
+	   		final String finalBasicText = basicText;
+	   		final boolean[] basicQueued = new boolean[] { finalBasicText==null };
 	   		emulator.startWithStepPhases(-1, cpu, (step, manager, preCycle) -> {
+	   			if( !basicQueued[0] && manager==cpu && preCycle ) {
+	   				queueBasicText(finalKeyboard, finalBasicFile, finalBasicText);
+	   				basicQueued[0] = true;
+	   			}
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
 	   				Opcode executed = cpu.getOpcode();
 	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
