@@ -152,6 +152,7 @@ public class Emulator8Coordinator {
 		MemoryBus8 bus;
 		Cpu65c02 cpu;
 		KeyboardIIe keyboard = null;
+		HeadlessVideoProbe headlessProbe = null;
 
 		if( properties.getLayout()==MachineLayoutType.DEMO_32x32 ) {
 			bus = new MemoryBusDemo8(memory, keyboard);
@@ -198,9 +199,8 @@ public class Emulator8Coordinator {
 			VideoSignalSource display = null;
 			if( GraphicsEnvironment.isHeadless() ) {
 				System.out.println("Running headless: using headless video probe");
-				HeadlessVideoProbe probe = new HeadlessVideoProbe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier));
-				display = probe;
-				hardwareManagerQueue.add(probe);
+				headlessProbe = new HeadlessVideoProbe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier));
+				display = headlessProbe;
 			}
 			else {
 				DisplayIIe windowDisplay = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
@@ -295,8 +295,15 @@ public class Emulator8Coordinator {
 	   		final PrintWriter finalTraceWriter = traceWriter;
 	   		final String finalTracePhase = tracePhase;
 	   		final Integer finalHaltExecution = haltExecution;
+	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
 	   		final boolean[] haltedAtAddress = new boolean[] { false };
 	   		long steps = emulator.startWithStepPhases(maxCpuSteps, cpu, (step, manager, preCycle) -> {
+	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
+	   				Opcode executed = cpu.getOpcode();
+	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
+	   				if( !"RES".equals(mnemonic) )
+	   					finalHeadlessProbe.advanceCycles(cpu.getLastInstructionCycleCount());
+	   			}
 	   			if( finalTraceWriter==null && !(preCycle && finalHaltExecution!=null) )
 	   				return true;
 	   			boolean hitStopAddress = preCycle && finalHaltExecution!=null &&
@@ -389,7 +396,16 @@ public class Emulator8Coordinator {
 				System.out.println("Trace written: "+traceFile);
 	   	}
 	   	else {
-	   		emulator.start();
+	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
+	   		emulator.startWithStepPhases(-1, cpu, (step, manager, preCycle) -> {
+	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
+	   				Opcode executed = cpu.getOpcode();
+	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
+	   				if( !"RES".equals(mnemonic) )
+	   					finalHeadlessProbe.advanceCycles(cpu.getLastInstructionCycleCount());
+	   			}
+	   			return true;
+	   		});
 			System.out.println("Done");
 	   	}
 

@@ -1,13 +1,13 @@
 package core.emulator;
 
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 import core.exception.HardwareException;
 
 public abstract class HardwareManager implements HardwareComponent, Comparable<HardwareManager> {
 
-	private static Random rand = new Random();
-	private long id = rand.nextLong();
+	private static final AtomicLong NEXT_ID = new AtomicLong();
+	private final long id = NEXT_ID.getAndIncrement();
 	private long nextActionCycleUnits;
 	protected long unitsPerCycle;
 	private static long offsetUnits;
@@ -56,7 +56,7 @@ public abstract class HardwareManager implements HardwareComponent, Comparable<H
 		if( sign==0 ) {
 			if( manager.id==id )
 				return 0;
-			return manager.id<id ? -1:1;
+			return id<manager.id ? -1:1;
 		}
 		return sign<0 ? -1:1;
 	}

@@ -38,6 +38,8 @@ public class Cpu65c02 extends HardwareManager {
 
 	private int cycleCount;
 	private int idleCycle;
+	private int lastCycleCount;
+	private int lastInstructionCycleCount;
 
 	private Opcode interruptPending;
 	private boolean isHalted;
@@ -1157,7 +1159,9 @@ public class Cpu65c02 extends HardwareManager {
 				
 		}
 	
-		incSleepCycles(idleCycle+cycleCount);
+		lastInstructionCycleCount = cycleCount;
+		lastCycleCount = idleCycle+cycleCount;
+		incSleepCycles(lastCycleCount);
 		idleCycle = 0;
 	
 		// Supress maskable interrupts if P.I is set
@@ -1345,6 +1349,14 @@ public class Cpu65c02 extends HardwareManager {
 
 	public void setResetPOverride(Integer p) {
 		resetPOverride = p==null ? null : ((p|0x30)&0xff);
+	}
+
+	public int getLastCycleCount() {
+		return lastCycleCount;
+	}
+
+	public int getLastInstructionCycleCount() {
+		return lastInstructionCycleCount;
 	}
 
 }

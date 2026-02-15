@@ -51,6 +51,16 @@ public class HeadlessVideoProbe extends HardwareManager implements VideoSignalSo
 		tracer.cycle();
 	}
 
+	public void advanceCycles(int cycles) {
+		for( int i = 0; i<cycles; i++ ) {
+			try {
+				cycle();
+			} catch( HardwareException e ) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
 	@Override
 	public void coldReset() throws HardwareException {
 		coldResetNoThrow();
