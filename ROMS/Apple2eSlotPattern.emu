@@ -1,0 +1,15 @@
+machine.layout=APPLE_IIE
+binary.file=APPLE2E.ROM
+address.start=0xC000
+machine.cpu.mult=1
+machine.display.mono=off
+machine.layout.slot.1=test.PatternSlotCard
+machine.layout.slot.2=test.PatternSlotCard
+machine.layout.slot.3=test.PatternSlotCard
+machine.layout.slot.4=test.PatternSlotCard
+machine.layout.slot.5=test.PatternSlotCard
+machine.layout.slot.6=test.PatternSlotCard
+machine.layout.slot.7=test.PatternSlotCard
+# Optional per-slot override examples:
+# machine.layout.slot.1.pattern=0x11
+# machine.layout.slot.2.pattern=0x22
