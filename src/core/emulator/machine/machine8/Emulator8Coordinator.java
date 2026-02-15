@@ -213,16 +213,22 @@ public class Emulator8Coordinator {
 	   		PrintWriter traceWriter = null;
 	   		if( traceFile!=null ) {
 	   			traceWriter = new PrintWriter(new FileWriter(traceFile));
-	   			traceWriter.println("step,pc,opcode,a,x,y,p,s,mnemonic,mode");
+	   			traceWriter.println("step,event_type,event,pc,opcode,a,x,y,p,s,mnemonic,mode");
 	   		}
 	   		final PrintWriter finalTraceWriter = traceWriter;
 	   		long steps = emulator.start(maxCpuSteps, cpu, (step, manager) -> {
 	   			if( finalTraceWriter==null )
 	   				return;
 	   			Opcode opcode = cpu.getOpcode();
+	   			String mnemonic = opcode.getMnemonic()==null ? "" : opcode.getMnemonic().toString().trim();
+	   			boolean isResetEvent = "RES".equals(mnemonic);
+	   			String eventType = isResetEvent ? "event":"instr";
+	   			String event = isResetEvent ? "RESET":"";
 	   			Integer machineCode = opcode.getMachineCode();
 	   			finalTraceWriter.println(
 	   					step + "," +
+	   					eventType + "," +
+	   					event + "," +
 	   					Cpu65c02.getHexString(cpu.getRegister().getPC(), 4) + "," +
 	   					(machineCode==null?"--":Cpu65c02.getHexString(machineCode, 2)) + "," +
 	   					Cpu65c02.getHexString(cpu.getRegister().getA(), 2) + "," +
