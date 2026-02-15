@@ -1,0 +1,68 @@
+package device.display;
+
+import core.emulator.HardwareManager;
+import core.exception.HardwareException;
+import core.memory.memory8.Memory8;
+import core.memory.memory8.MemoryBusIIe;
+import device.display.display8.ScanlineTracer8;
+
+/**
+ * Headless monitor timing/probe used to supply floating-bus style reads
+ * without creating a UI window.
+ */
+public class HeadlessVideoProbe extends HardwareManager implements VideoSignalSource {
+
+	private final MemoryBusIIe memoryBus;
+	private final Memory8 memory;
+	private final ScanlineTracer8 tracer;
+	private int lastSwitchIteration;
+
+	public HeadlessVideoProbe(MemoryBusIIe memoryBus, long unitsPerCycle) {
+		super(unitsPerCycle);
+		this.memoryBus = memoryBus;
+		this.memory = memoryBus.getMemory();
+		this.tracer = new ScanlineTracer8();
+		tracer.setScanStart(25, 70);
+		tracer.setScanSize(65, 262);
+		coldResetNoThrow();
+	}
+
+	private void coldResetNoThrow() {
+		lastSwitchIteration = -1;
+		evaluateSwitchChange();
+		tracer.coldReset();
+	}
+
+	private void evaluateSwitchChange() {
+		tracer.setPage(memoryBus.isPage2() && !memoryBus.is80Store() ? 2 : 1);
+		if( memoryBus.isHiRes() )
+			tracer.setTraceMap(DisplayIIe.HI40_TRACE);
+		else
+			tracer.setTraceMap(DisplayIIe.LO40_TRACE);
+	}
+
+	@Override
+	public void cycle() throws HardwareException {
+		incSleepCycles(1);
+		if( lastSwitchIteration!=memoryBus.getSwitchIteration() ) {
+			lastSwitchIteration = memoryBus.getSwitchIteration();
+			evaluateSwitchChange();
+		}
+		tracer.cycle();
+	}
+
+	@Override
+	public void coldReset() throws HardwareException {
+		coldResetNoThrow();
+	}
+
+	@Override
+	public int getLastRead() {
+		return memory.getByte(tracer.getAddress());
+	}
+
+	@Override
+	public boolean isVbl() {
+		return tracer.isVbl();
+	}
+}

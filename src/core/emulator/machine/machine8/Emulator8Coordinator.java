@@ -25,6 +25,8 @@ import device.display.Display32x32;
 import device.display.Display32x32Console;
 import device.display.DisplayConsoleDebug;
 import device.display.DisplayIIe;
+import device.display.HeadlessVideoProbe;
+import device.display.VideoSignalSource;
 import device.keyboard.KeyboardIIe;
 import device.speaker.Speaker1Bit;
 
@@ -193,13 +195,17 @@ public class Emulator8Coordinator {
 			hardwareManagerQueue.add(cpu = new Cpu65c02((MemoryBusIIe) bus, (long) (unitsPerCycle/cpuMultiplier)));
 			cpu.coldReset();
 			keyboard = new KeyboardIIe((long) (unitsPerCycle/keyActionMultiplier), cpu);
-			DisplayIIe display = null;
+			VideoSignalSource display = null;
 			if( GraphicsEnvironment.isHeadless() ) {
-				System.out.println("Running headless: display output disabled");
+				System.out.println("Running headless: using headless video probe");
+				HeadlessVideoProbe probe = new HeadlessVideoProbe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier));
+				display = probe;
+				hardwareManagerQueue.add(probe);
 			}
 			else {
-				display = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
-				hardwareManagerQueue.add(display);
+				DisplayIIe windowDisplay = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
+				display = windowDisplay;
+				hardwareManagerQueue.add(windowDisplay);
 			}
 			try {
 				hardwareManagerQueue.add(new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS));

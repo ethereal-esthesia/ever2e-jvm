@@ -17,7 +17,7 @@ import device.display.display8.ScanlineTracer8;
 import device.display.display8.TraceMap8;
 import device.keyboard.KeyboardIIe;
 
-public class DisplayIIe extends DisplayWindow {
+public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 
 	private ScanlineTracer8 tracer;
 

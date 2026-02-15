@@ -3,6 +3,7 @@ package core.memory.memory8;
 import peripherals.PeripheralIIe;
 import core.exception.HardwareException;
 import device.display.DisplayIIe;
+import device.display.VideoSignalSource;
 import device.keyboard.KeyboardIIe;
 
 public class MemoryBusIIe extends MemoryBus8 {
@@ -41,7 +42,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 	private SwitchSet8[] slotSwitchList = new SwitchSet8[8];
 
 	private KeyboardIIe keyboard;
-	private DisplayIIe monitor;
+	private VideoSignalSource monitor;
 
 	private SwitchState switch80Store = new SwitchState();
 	private SwitchState switchHiRes = new SwitchState();
@@ -1093,11 +1094,11 @@ public class MemoryBusIIe extends MemoryBus8 {
 		this.keyboard = keyboard;
 	}
 
-	public DisplayIIe getDisplay() {
+	public VideoSignalSource getDisplay() {
 		return monitor;
 	}
 
-	public void setDisplay( DisplayIIe display ) {
+	public void setDisplay( VideoSignalSource display ) {
 		this.monitor = display;
 	}
 
