@@ -122,6 +122,16 @@ java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Co
   --steps 200000 --paste-file /Users/shane/Project/ever2e/jvm_repo/samples/VBL_TEST.BAS
 ```
 
+Queue the combined 4-slice opcode monitor loader (generated from `python_port`) and execute:
+
+```bash
+java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
+  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu \
+  --steps 30000000 \
+  --paste-file /Users/shane/Project/ever2e/python_port/tools/opcode_smoke_loader_4x.mon \
+  --print-text-at-exit
+```
+
 ## Known gaps
 
 - Expansion ROM behavior is still under active parity work.
