@@ -89,8 +89,8 @@ public class Emulator8Coordinator {
 		boolean textConsole = false;
 		Integer resetPFlagValue = null;
 		Integer haltExecution = null;
-		String basicFile = null;
-		String basicText = null;
+		String pasteFile = null;
+		String pasteText = null;
 		for( int i = 0; i<argList.length; i++ ) {
 			String arg = argList[i];
 			if( "--steps".equals(arg) ) {
@@ -147,13 +147,13 @@ public class Emulator8Coordinator {
 			else if( arg.startsWith("--halt-execution=") ) {
 				haltExecution = parseWordArg(arg.substring("--halt-execution=".length()), "--halt-execution");
 			}
-			else if( "--basic-file".equals(arg) ) {
+			else if( "--paste".equals(arg) ) {
 				if( i+1>=argList.length )
-					throw new IllegalArgumentException("Missing value for --basic-file");
-				basicFile = argList[++i];
+					throw new IllegalArgumentException("Missing value for --paste");
+				pasteFile = argList[++i];
 			}
-			else if( arg.startsWith("--basic-file=") ) {
-				basicFile = arg.substring("--basic-file=".length());
+			else if( arg.startsWith("--paste=") ) {
+				pasteFile = arg.substring("--paste=".length());
 			}
 			else {
 				if( arg.startsWith("-") )
@@ -314,10 +314,10 @@ public class Emulator8Coordinator {
 		System.out.println("--------------------------------------");
 		System.out.println();
 
-		if( basicFile!=null ) {
+		if( pasteFile!=null ) {
 			if( keyboard==null )
-				throw new IllegalArgumentException("--basic-file requires a machine layout with KeyboardIIe");
-			basicText = Files.readString(Path.of(basicFile), StandardCharsets.UTF_8);
+				throw new IllegalArgumentException("--paste requires a machine layout with KeyboardIIe");
+			pasteText = Files.readString(Path.of(pasteFile), StandardCharsets.UTF_8);
 		}
 
 	   	DecimalFormat format = new DecimalFormat("0.######E0");
@@ -344,12 +344,12 @@ public class Emulator8Coordinator {
 	   		final KeyboardIIe finalKeyboard = keyboard;
 	   		final boolean[] haltedAtAddress = new boolean[] { false };
 	   		final boolean[] traceStarted = new boolean[] { finalTraceStartPc==null };
-	   		final String finalBasicFile = basicFile;
-	   		final String finalBasicText = basicText;
-	   		final boolean[] basicQueued = new boolean[] { finalBasicText==null };
+	   		final String finalPasteFile = pasteFile;
+	   		final String finalPasteText = pasteText;
+	   		final boolean[] basicQueued = new boolean[] { finalPasteText==null };
 	   		long steps = emulator.startWithStepPhases(maxCpuSteps, cpu, (step, manager, preCycle) -> {
 	   			if( !basicQueued[0] && manager==cpu && preCycle ) {
-	   				queueBasicText(finalKeyboard, finalBasicFile, finalBasicText);
+	   				queueBasicText(finalKeyboard, finalPasteFile, finalPasteText);
 	   				basicQueued[0] = true;
 	   			}
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
@@ -451,7 +451,7 @@ public class Emulator8Coordinator {
 					" Y="+Cpu65c02.getHexString(cpu.getRegister().getY(), 2)+
 					" P="+Cpu65c02.getHexString(cpu.getRegister().getP(), 2)+
 					" S="+Cpu65c02.getHexString(cpu.getRegister().getS(), 2));
-			if( basicFile!=null && keyboard!=null )
+			if( pasteFile!=null && keyboard!=null )
 				System.out.println("basic_queue queued="+keyboard.getQueuedKeyCount()+
 						" consumed="+keyboard.getConsumedQueuedKeyCount()+
 						" remaining="+keyboard.getQueuedKeyDepth());
@@ -461,12 +461,12 @@ public class Emulator8Coordinator {
 	   	else {
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
 	   		final KeyboardIIe finalKeyboard = keyboard;
-	   		final String finalBasicFile = basicFile;
-	   		final String finalBasicText = basicText;
-	   		final boolean[] basicQueued = new boolean[] { finalBasicText==null };
+	   		final String finalPasteFile = pasteFile;
+	   		final String finalPasteText = pasteText;
+	   		final boolean[] basicQueued = new boolean[] { finalPasteText==null };
 	   		emulator.startWithStepPhases(-1, cpu, (step, manager, preCycle) -> {
 	   			if( !basicQueued[0] && manager==cpu && preCycle ) {
-	   				queueBasicText(finalKeyboard, finalBasicFile, finalBasicText);
+	   				queueBasicText(finalKeyboard, finalPasteFile, finalPasteText);
 	   				basicQueued[0] = true;
 	   			}
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
