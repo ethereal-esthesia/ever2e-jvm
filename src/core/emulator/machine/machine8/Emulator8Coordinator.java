@@ -331,6 +331,8 @@ public class Emulator8Coordinator {
 	   	if( resetPFlagValue!=null )
 	   		cpu.setResetPOverride(resetPFlagValue);
 	   	if( maxCpuSteps>=0 ) {
+	   		if( traceFile!=null && traceStartPc==null )
+	   			traceStartPc = properties.getProgramStart();
 	   		PrintWriter traceWriter = null;
 	   		if( traceFile!=null ) {
 	   			traceWriter = new PrintWriter(new FileWriter(traceFile));
@@ -344,6 +346,7 @@ public class Emulator8Coordinator {
 	   		final KeyboardIIe finalKeyboard = keyboard;
 	   		final boolean[] haltedAtAddress = new boolean[] { false };
 	   		final boolean[] traceStarted = new boolean[] { finalTraceStartPc==null };
+	   		final long[] traceStepBase = new long[] { -1L };
 	   		final String finalPasteFile = pasteFile;
 	   		final String finalPasteText = pasteText;
 	   		final boolean[] basicQueued = new boolean[] { finalPasteText==null };
@@ -361,8 +364,12 @@ public class Emulator8Coordinator {
 	   			if( finalTraceWriter==null && !(preCycle && finalHaltExecution!=null) )
 	   				return true;
 	   			if( !traceStarted[0] && preCycle && finalTraceStartPc!=null &&
-	   					(cpu.getPendingPC()&0xffff)==(finalTraceStartPc&0xffff) )
+	   					(cpu.getPendingPC()&0xffff)==(finalTraceStartPc&0xffff) ) {
 	   				traceStarted[0] = true;
+	   				traceStepBase[0] = step;
+	   			}
+	   			if( traceStarted[0] && traceStepBase[0]<0 )
+	   				traceStepBase[0] = step;
 	   			boolean hitStopAddress = preCycle && finalHaltExecution!=null &&
 	   					(cpu.getPendingPC()&0xffff)==(finalHaltExecution&0xffff);
 	   			if( hitStopAddress && !"pre".equals(finalTracePhase) ) {
@@ -374,8 +381,9 @@ public class Emulator8Coordinator {
 	   				Integer machineCode = opcode.getMachineCode();
 	   				String mnemonic = opcode.getMnemonic()==null ? "" : opcode.getMnemonic().toString().trim();
 	   				boolean isResetEvent = "RES".equals(mnemonic);
+	   				long outStep = traceStepBase[0]>=0 ? (step-traceStepBase[0]+1L) : step;
 	   				finalTraceWriter.println(
-	   						step + "," +
+	   						outStep + "," +
 	   						(isResetEvent ? "event":"instr") + "," +
 	   						(isResetEvent ? "RESET":"") + "," +
 	   						Cpu65c02.getHexString(cpu.getPendingPC(), 4) + "," +
@@ -423,8 +431,9 @@ public class Emulator8Coordinator {
 	   				String eventType = isResetEvent ? "event":"instr";
 	   				String event = isResetEvent ? "RESET":"";
 	   				Integer machineCode = opcode.getMachineCode();
+	   				long outStep = traceStepBase[0]>=0 ? (step-traceStepBase[0]+1L) : step;
 	   				finalTraceWriter.println(
-	   						step + "," +
+	   						outStep + "," +
 	   						eventType + "," +
 	   						event + "," +
 	   						Cpu65c02.getHexString(pc, 4) + "," +
