@@ -700,7 +700,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 			if( address==0xcfff ) {
 				switchIntC8Rom.resetState();
-				return 0;  /// TODO
+				return monitor==null ? 0:monitor.getLastRead();
 			}
 
 			if( switchIntC8Rom.getState() || switchIntCxRom.getState() )
@@ -710,7 +710,7 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 			System.err.println("Warning: unsupported read from expansion memory at 0x" +
 					Integer.toHexString(address));
-			return 0;
+			return monitor==null ? 0:monitor.getLastRead();
 
 		/*
 
