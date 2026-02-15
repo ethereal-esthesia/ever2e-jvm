@@ -87,6 +87,7 @@ public class Emulator8Coordinator {
 		String tracePhase = "pre";
 		Integer traceStartPc = null;
 		boolean textConsole = false;
+		boolean printTextAtExit = false;
 		Integer resetPFlagValue = null;
 		Integer haltExecution = null;
 		String pasteFile = null;
@@ -122,6 +123,9 @@ public class Emulator8Coordinator {
 			}
 			else if( "--text-console".equals(arg) ) {
 				textConsole = true;
+			}
+			else if( "--print-text-at-exit".equals(arg) ) {
+				printTextAtExit = true;
 			}
 			else if( "--trace-start-pc".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -466,6 +470,8 @@ public class Emulator8Coordinator {
 						" remaining="+keyboard.getQueuedKeyDepth());
 			if( traceFile!=null )
 				System.out.println("Trace written: "+traceFile);
+			if( printTextAtExit && bus instanceof MemoryBusIIe )
+				printTextScreen((MemoryBusIIe) bus, memory);
 	   	}
 	   	else {
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
@@ -487,8 +493,31 @@ public class Emulator8Coordinator {
 	   			return true;
 	   		});
 			System.out.println("Done");
+			if( printTextAtExit && bus instanceof MemoryBusIIe )
+				printTextScreen((MemoryBusIIe) bus, memory);
 	   	}
 
+	}
+
+	private static void printTextScreen(MemoryBusIIe memoryBus, Memory8 memory) {
+		int page = memoryBus.isPage2() ? 2 : 1;
+		System.out.println("text_screen_begin");
+		for( int y = 0; y<24; y++ ) {
+			StringBuilder line = new StringBuilder(40);
+			for( int x = 0; x<40; x++ ) {
+				int addr = DisplayConsoleAppleIIe.getAddressLo40(page, y, x);
+				line.append(transliterateText(memory.getByte(addr)));
+			}
+			System.out.println(line.toString());
+		}
+		System.out.println("text_screen_end");
+	}
+
+	private static char transliterateText(int ascii) {
+		ascii &= 0x7f;
+		if( ascii<0x20 || ascii==0x7f )
+			ascii = 0x7e;
+		return (char) ascii;
 	}
 
 	private static void printFlags(int origA, int origB, int value) {
