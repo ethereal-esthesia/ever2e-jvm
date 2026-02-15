@@ -3,6 +3,9 @@ package core.emulator.machine.machine8;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.awt.GraphicsEnvironment;
 import java.text.DecimalFormat;
 import java.util.PriorityQueue;
@@ -75,8 +78,10 @@ public class Emulator8Coordinator {
 		long maxCpuSteps = -1;
 		String traceFile = null;
 		String tracePhase = "pre";
+		Integer traceStartPc = null;
 		Integer resetPFlagValue = null;
 		Integer haltExecution = null;
+		String basicFile = null;
 		for( int i = 0; i<argList.length; i++ ) {
 			String arg = argList[i];
 			if( "--steps".equals(arg) ) {
@@ -106,6 +111,14 @@ public class Emulator8Coordinator {
 			else if( "--post".equals(arg) ) {
 				tracePhase = "post";
 			}
+			else if( "--trace-start-pc".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --trace-start-pc");
+				traceStartPc = parseWordArg(argList[++i], "--trace-start-pc");
+			}
+			else if( arg.startsWith("--trace-start-pc=") ) {
+				traceStartPc = parseWordArg(arg.substring("--trace-start-pc=".length()), "--trace-start-pc");
+			}
 			else if( "--reset-pflag-value".equals(arg) ) {
 				if( i+1>=argList.length )
 					throw new IllegalArgumentException("Missing value for --reset-pflag-value");
@@ -121,6 +134,14 @@ public class Emulator8Coordinator {
 			}
 			else if( arg.startsWith("--halt-execution=") ) {
 				haltExecution = parseWordArg(arg.substring("--halt-execution=".length()), "--halt-execution");
+			}
+			else if( "--basic-file".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --basic-file");
+				basicFile = argList[++i];
+			}
+			else if( arg.startsWith("--basic-file=") ) {
+				basicFile = arg.substring("--basic-file=".length());
 			}
 			else {
 				if( arg.startsWith("-") )
@@ -276,6 +297,15 @@ public class Emulator8Coordinator {
 		System.out.println("--------------------------------------");
 		System.out.println();
 
+		if( basicFile!=null ) {
+			if( keyboard==null )
+				throw new IllegalArgumentException("--basic-file requires a machine layout with KeyboardIIe");
+			String basicText = Files.readString(Path.of(basicFile), StandardCharsets.UTF_8);
+			for( char c : basicText.toCharArray() )
+				keyboard.pushKeyCode(c==0x0a ? 0x0d:c);
+			System.out.println("Queued BASIC paste from "+basicFile+" ("+basicText.length()+" chars)");
+		}
+
 	   	DecimalFormat format = new DecimalFormat("0.######E0");
 		HardwareManager[] managerList = new HardwareManager[hardwareManagerQueue.size()];
 		for( HardwareManager manager : hardwareManagerQueue.toArray(managerList) )
@@ -294,9 +324,11 @@ public class Emulator8Coordinator {
 	   		}
 	   		final PrintWriter finalTraceWriter = traceWriter;
 	   		final String finalTracePhase = tracePhase;
+	   		final Integer finalTraceStartPc = traceStartPc;
 	   		final Integer finalHaltExecution = haltExecution;
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
 	   		final boolean[] haltedAtAddress = new boolean[] { false };
+	   		final boolean[] traceStarted = new boolean[] { finalTraceStartPc==null };
 	   		long steps = emulator.startWithStepPhases(maxCpuSteps, cpu, (step, manager, preCycle) -> {
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
 	   				Opcode executed = cpu.getOpcode();
@@ -306,6 +338,9 @@ public class Emulator8Coordinator {
 	   			}
 	   			if( finalTraceWriter==null && !(preCycle && finalHaltExecution!=null) )
 	   				return true;
+	   			if( !traceStarted[0] && preCycle && finalTraceStartPc!=null &&
+	   					(cpu.getPendingPC()&0xffff)==(finalTraceStartPc&0xffff) )
+	   				traceStarted[0] = true;
 	   			boolean hitStopAddress = preCycle && finalHaltExecution!=null &&
 	   					(cpu.getPendingPC()&0xffff)==(finalHaltExecution&0xffff);
 	   			if( hitStopAddress && !"pre".equals(finalTracePhase) ) {
@@ -334,6 +369,8 @@ public class Emulator8Coordinator {
 	   				haltedAtAddress[0] = true;
 	   				return false;
 	   			}
+	   			if( !traceStarted[0] )
+	   				return true;
 	   			if( "pre".equals(finalTracePhase) && !preCycle )
 	   				return true;
 	   			if( "post".equals(finalTracePhase) && preCycle )

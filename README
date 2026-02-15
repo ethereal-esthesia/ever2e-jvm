@@ -53,10 +53,14 @@ java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Co
   - Snapshot phase for instruction rows.
 - `--post`
   - Shortcut for `--trace-phase post`.
+- `--trace-start-pc <addr>`
+  - Do not emit trace rows until this PC is reached (inclusive), then continue tracing normally.
 - `--reset-pflag-value <value>`
   - Override reset-time `P` policy (hex `0x..` or decimal). Bits `0x20` and `0x10` stay asserted.
 - `--halt-execution <addr>`
   - Stop execution when PC reaches the address (hex `0x....` or decimal).
+- `--basic-file <path>`
+  - Queue BASIC source text into the keyboard input queue at startup (same CR conversion as paste).
 
 ## Trace output format
 
@@ -93,6 +97,14 @@ java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Co
   --steps 5000 --trace-file /tmp/jvm_trace_post.csv --trace-phase post
 ```
 
+Generate a trace that starts only at a target PC:
+
+```bash
+java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
+  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu \
+  --steps 200000 --trace-file /tmp/jvm_trace_basic.csv --trace-phase pre --trace-start-pc 0xE000
+```
+
 Run with reset `P` policy and halt point:
 
 ```bash
@@ -100,6 +112,14 @@ java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Co
   /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2eMemCheck.emu \
   --steps 200000 --trace-phase pre --reset-pflag-value 0x36 --halt-execution 0xC70B \
   --trace-file /tmp/jvm_halt_trace.csv
+```
+
+Queue a BASIC program file for typed input:
+
+```bash
+java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
+  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu \
+  --steps 200000 --basic-file /Users/shane/Project/ever2e/jvm_repo/samples/VBL_TEST.BAS
 ```
 
 ## Known gaps
