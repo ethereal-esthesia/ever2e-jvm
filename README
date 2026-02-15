@@ -59,7 +59,7 @@ java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Co
   - Override reset-time `P` policy (hex `0x..` or decimal). Bits `0x20` and `0x10` stay asserted.
 - `--halt-execution <addr>`
   - Stop execution when PC reaches the address (hex `0x....` or decimal).
-- `--paste <path>`
+- `--paste-file <path>`
   - Queue BASIC source text into the keyboard input queue at startup (same CR conversion as paste).
 
 ## Trace output format
@@ -119,7 +119,7 @@ Queue a BASIC program file for typed input:
 ```bash
 java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
   /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu \
-  --steps 200000 --paste /Users/shane/Project/ever2e/jvm_repo/samples/VBL_TEST.BAS
+  --steps 200000 --paste-file /Users/shane/Project/ever2e/jvm_repo/samples/VBL_TEST.BAS
 ```
 
 ## Known gaps

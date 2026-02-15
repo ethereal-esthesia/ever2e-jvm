@@ -151,13 +151,13 @@ public class Emulator8Coordinator {
 			else if( arg.startsWith("--halt-execution=") ) {
 				haltExecution = parseWordArg(arg.substring("--halt-execution=".length()), "--halt-execution");
 			}
-			else if( "--paste".equals(arg) ) {
+			else if( "--paste-file".equals(arg) ) {
 				if( i+1>=argList.length )
-					throw new IllegalArgumentException("Missing value for --paste");
+					throw new IllegalArgumentException("Missing value for --paste-file");
 				pasteFile = argList[++i];
 			}
-			else if( arg.startsWith("--paste=") ) {
-				pasteFile = arg.substring("--paste=".length());
+			else if( arg.startsWith("--paste-file=") ) {
+				pasteFile = arg.substring("--paste-file=".length());
 			}
 			else {
 				if( arg.startsWith("-") )
@@ -320,7 +320,7 @@ public class Emulator8Coordinator {
 
 		if( pasteFile!=null ) {
 			if( keyboard==null )
-				throw new IllegalArgumentException("--paste requires a machine layout with KeyboardIIe");
+				throw new IllegalArgumentException("--paste-file requires a machine layout with KeyboardIIe");
 			pasteText = Files.readString(Path.of(pasteFile), StandardCharsets.UTF_8);
 		}
 
