@@ -2,6 +2,7 @@ package device.speaker;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
@@ -11,7 +12,7 @@ import core.emulator.HardwareManager;
 
 public class Speaker1Bit extends HardwareManager  {
 
-	private static final int SAMPLE_BUFFER_SIZE = 1024;   // Lag of 1/40th to 1/20th of a second at 22050Hz
+	private static final int SAMPLE_BUFFER_SAMPLES = 1024;   // Lag of 1/40th to 1/20th of a second at 22050Hz
 	private static final float MAX_SOUND_WORD = 32767f;   // Min and max limits on sound resolution
 	private static final float MIN_SOUND_WORD = -32768f;
 	private static final float SAMPLE_RATE = 22050;       // Sound samples per second
@@ -35,10 +36,12 @@ public class Speaker1Bit extends HardwareManager  {
 
 	private MemoryBusIIe bus;
 
-	private byte [] buffer = new byte[SAMPLE_BUFFER_SIZE];
+	private byte [] buffer;
 	private AudioFormat audioFormat;
+	private int bytesPerSample;
 	private SourceDataLine sdl;
-    private int bufferIndex;
+	private int bufferIndex;
+	private boolean closed;
 
 	private float pos;
 	private float vel;
@@ -58,9 +61,9 @@ public class Speaker1Bit extends HardwareManager  {
 		durationInc = 1000000000d*(unitsPerCycle/Math.pow(2d, bitGranularity)/1000d)*SKIP_CYCLES;
 		this.bus = bus;
 		
-        audioFormat = new AudioFormat(SAMPLE_RATE, 8, 1, true, false);
-        sdl = AudioSystem.getSourceDataLine(audioFormat);
-        bufferIndex = 0;
+			initializeAudioLine();
+			bufferIndex = 0;
+			closed = false;
         
 		pos = 0f;
 		vel = 0f;
@@ -72,7 +75,8 @@ public class Speaker1Bit extends HardwareManager  {
 		sampleTotal = 0;
 		sampleLength = 0;
 	
-	    open();
+			open();
+			Runtime.getRuntime().addShutdownHook(new Thread(this::close));
 		
 	}
 	
@@ -126,12 +130,7 @@ public class Speaker1Bit extends HardwareManager  {
 			sampleSum = sampleSum>MAX_SOUND_WORD ? MAX_SOUND_WORD:sampleSum;
 			sampleSum = sampleSum<MIN_SOUND_WORD ? MIN_SOUND_WORD:sampleSum;
 	
-			byte sampleByte = (byte) (sampleSum/256f);
-			buffer[bufferIndex++] = sampleByte;
-			if( bufferIndex==SAMPLE_BUFFER_SIZE ) {
-				bufferIndex = 0;
-				sdl.write(buffer, 0, SAMPLE_BUFFER_SIZE);
-			}
+			writeSample(sampleSum);
 			sampleLength -= SAMPLE_DURATION;
 			
 			sampleSum = 0f;
@@ -141,14 +140,56 @@ public class Speaker1Bit extends HardwareManager  {
 	
 	}
 	
+    private void initializeAudioLine() throws LineUnavailableException {
+		AudioFormat[] candidates = new AudioFormat[] {
+			new AudioFormat(SAMPLE_RATE, 16, 1, true, false),
+			new AudioFormat(SAMPLE_RATE, 8, 1, true, false)
+		};
+		for( AudioFormat candidate : candidates ) {
+			DataLine.Info info = new DataLine.Info(SourceDataLine.class, candidate);
+			if( !AudioSystem.isLineSupported(info) )
+				continue;
+			sdl = AudioSystem.getSourceDataLine(candidate);
+			audioFormat = candidate;
+			bytesPerSample = candidate.getSampleSizeInBits() / 8;
+			buffer = new byte[SAMPLE_BUFFER_SAMPLES * bytesPerSample];
+			return;
+		}
+		throw new LineUnavailableException("No supported SourceDataLine for mono PCM at " + SAMPLE_RATE + "Hz");
+	}
+
+    private void writeSample(float sampleValue) {
+		int sampleInt = Math.round(sampleValue);
+		if( bytesPerSample==2 ) {
+			short sampleShort = (short) sampleInt;
+			buffer[bufferIndex++] = (byte) (sampleShort & 0x00ff);
+			buffer[bufferIndex++] = (byte) ((sampleShort >> 8) & 0x00ff);
+		}
+		else {
+			buffer[bufferIndex++] = (byte) (sampleInt / 256);
+		}
+		if( bufferIndex>=buffer.length ) {
+			sdl.write(buffer, 0, bufferIndex);
+			bufferIndex = 0;
+		}
+	}
+
     public void open() throws LineUnavailableException {
-		sdl.open();
+		sdl.open(audioFormat, buffer.length);
 		sdl.start();
 	}
 
-    public void close() {
-	    sdl.drain();
-	    sdl.stop();
+    public synchronized void close() {
+    	if( closed || sdl==null )
+    		return;
+    	if( bufferIndex>0 ) {
+    		sdl.write(buffer, 0, bufferIndex);
+    		bufferIndex = 0;
+    	}
+    	sdl.drain();
+    	sdl.stop();
+    	sdl.close();
+    	closed = true;
 	}
 
 	@Override
