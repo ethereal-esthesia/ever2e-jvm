@@ -6,8 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import javax.xml.bind.DatatypeConverter;
-
 import peripherals.PeripheralIIe;
 import core.emulator.VirtualMachineProperties;
 import core.exception.HardwareException;
@@ -36,15 +34,30 @@ public class Floppy525Controller extends PeripheralIIe {
 	
 	private static final byte[] PRODOS_ORDER_SECTORS = { 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15 };
 	
-	private static final byte[] ROM = DatatypeConverter.parseHexBinary(
-			"A220A000A203863C8A0A243CF010053C49FF297EB0084AD0FB989D5603C8E810"+
-			"E52058FFBABD00010A0A0A0A852BAABD8EC0BD8CC0BD8AC0BD89C0A050BD80C0"+
-			"9829030A052BAABD81C0A95620A8FC8810EB8526853D8541A90885271808BD8C"+
+	private static final byte[] ROM = parseHexBinary(
+				"A220A000A203863C8A0A243CF010053C49FF297EB0084AD0FB989D5603C8E810"+
+				"E52058FFBABD00010A0A0A0A852BAABD8EC0BD8CC0BD8AC0BD89C0A050BD80C0"+
+				"9829030A052BAABD81C0A95620A8FC8810EB8526853D8541A90885271808BD8C"+
 			"C010FB49D5D0F7BD8CC010FBC9AAD0F3EABD8CC010FBC996F0092890DF49ADF0"+
 			"25D0D9A0038540BD8CC010FB2A853CBD8CC010FB253C88D0EC28C53DD0BEA540"+
 			"C541D0B8B0B7A056843CBC8CC010FB59D602A43C88990003D0EE843CBC8CC010"+
-			"FB59D602A43C9126C8D0EFBC8CC010FB59D602D087A000A256CA30FBB1265E00"+
-			"032A5E00032A9126C8D0EEE627E63DA53DCD0008A62B90DB4C01080000000000");
+				"FB59D602A43C9126C8D0EFBC8CC010FB59D602D087A000A256CA30FBB1265E00"+
+				"032A5E00032A9126C8D0EEE627E63DA53DCD0008A62B90DB4C01080000000000");
+
+	private static byte[] parseHexBinary(String hex) {
+		int len = hex.length();
+		if( (len & 1) != 0 )
+			throw new IllegalArgumentException("Hex string must have an even length");
+		byte[] out = new byte[len / 2];
+		for( int i = 0; i < len; i += 2 ) {
+			int hi = Character.digit(hex.charAt(i), 16);
+			int lo = Character.digit(hex.charAt(i + 1), 16);
+			if( hi < 0 || lo < 0 )
+				throw new IllegalArgumentException("Invalid hex digit in ROM data at index " + i);
+			out[i / 2] = (byte) ((hi << 4) | lo);
+		}
+		return out;
+	}
 
 	private static final String EXT_PRODOS_ORDER = "PO";
 	private static final String EXT_DOS_ORDER = "DSK";

@@ -1,3 +1,11 @@
 
+# macOS Finder metadata
+.DS_Store
+
+# Java build outputs
+target/
+out/
+.gradle/
+
 # Local/generated ROM artifacts
-ROMS/APPLE2E_VBL_PROBE.ROM
+ROMS/

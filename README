@@ -19,12 +19,8 @@ JVM reference implementation and trace source for Apple IIe / 65C02 behavior.
 ## Build
 
 ```bash
-cd /Users/shane/Project/ever2e/jvm_repo
-javac -cp out -d out src/core/emulator/machine/Emulator.java \
-  src/core/cpu/cpu8/Cpu65c02.java \
-  src/core/memory/memory8/MemoryBusIIe.java \
-  src/core/emulator/machine/machine8/Emulator8Coordinator.java \
-  src/peripherals/test/PatternSlotCard.java
+cd /Users/shane/Project/ever2e-jvm
+./gradlew classes
 ```
 
 ## Run
@@ -32,15 +28,14 @@ javac -cp out -d out src/core/emulator/machine/Emulator.java \
 Default machine:
 
 ```bash
-cd /Users/shane/Project/ever2e/jvm_repo
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator
+cd /Users/shane/Project/ever2e-jvm
+./gradlew runHeadless
 ```
 
 Specific `.emu` file:
 
 ```bash
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
-  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu
+./gradlew runHeadless --args="ROMS/Apple2e.emu"
 ```
 
 ## CLI args
@@ -84,52 +79,37 @@ Notes:
 Generate a pre-phase trace:
 
 ```bash
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
-  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2eMemCheck.emu \
-  --steps 5000 --trace-file /tmp/jvm_trace.csv
+./gradlew runHeadless --args="ROMS/Apple2eMemCheck.emu --steps 5000 --trace-file /tmp/jvm_trace.csv"
 ```
 
 Generate a post-phase trace:
 
 ```bash
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
-  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2eMemCheck.emu \
-  --steps 5000 --trace-file /tmp/jvm_trace_post.csv --trace-phase post
+./gradlew runHeadless --args="ROMS/Apple2eMemCheck.emu --steps 5000 --trace-file /tmp/jvm_trace_post.csv --trace-phase post"
 ```
 
 Generate a trace that starts only at a target PC:
 
 ```bash
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
-  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu \
-  --steps 200000 --trace-file /tmp/jvm_trace_basic.csv --trace-phase pre --trace-start-pc 0xE000
+./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 200000 --trace-file /tmp/jvm_trace_basic.csv --trace-phase pre --trace-start-pc 0xE000"
 ```
 
 Run with reset `P` policy and halt point:
 
 ```bash
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
-  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2eMemCheck.emu \
-  --steps 200000 --trace-phase pre --reset-pflag-value 0x36 --halt-execution 0xC70B \
-  --trace-file /tmp/jvm_halt_trace.csv
+./gradlew runHeadless --args="ROMS/Apple2eMemCheck.emu --steps 200000 --trace-phase pre --reset-pflag-value 0x36 --halt-execution 0xC70B --trace-file /tmp/jvm_halt_trace.csv"
 ```
 
 Queue a BASIC program file for typed input:
 
 ```bash
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
-  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu \
-  --steps 200000 --paste-file /Users/shane/Project/ever2e/jvm_repo/samples/VBL_TEST.BAS
+./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 200000 --paste-file samples/VBL_TEST.BAS"
 ```
 
 Queue the combined 4-slice opcode monitor loader (generated from `python_port`) and execute:
 
 ```bash
-java -Djava.awt.headless=true -cp out core.emulator.machine.machine8.Emulator8Coordinator \
-  /Users/shane/Project/ever2e/jvm_repo/ROMS/Apple2e.emu \
-  --steps 30000000 \
-  --paste-file /Users/shane/Project/ever2e/python_port/tools/opcode_smoke_loader_4x.mon \
-  --print-text-at-exit
+./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 30000000 --paste-file /Users/shane/Project/ever2e/python_port/tools/opcode_smoke_loader_4x.mon --print-text-at-exit"
 ```
 
 ## Known gaps

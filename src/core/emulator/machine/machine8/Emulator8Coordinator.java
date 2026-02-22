@@ -10,7 +10,6 @@ import java.awt.GraphicsEnvironment;
 import java.text.DecimalFormat;
 import java.util.PriorityQueue;
 
-import org.junit.Test;
 
 import peripherals.PeripheralIIe;
 import core.cpu.cpu8.Cpu65c02;
@@ -529,7 +528,6 @@ public class Emulator8Coordinator {
 
 	}
 
-	@Test
 	public static void testOpcode() {
 
 		boolean carry = false;
@@ -553,7 +551,6 @@ public class Emulator8Coordinator {
 
 	}
 
-	@Test
 	public static void displayOpcodes() {
 		for( int x = 0; x<256; x++ )
 			if( Cpu65c02.OPCODE[x].getMnemonic()==Cpu65c02.OpcodeMnemonic.NOP )
