@@ -5,7 +5,7 @@ import java.io.PrintWriter;
 import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.awt.GraphicsEnvironment;
 import java.text.DecimalFormat;
 import java.util.PriorityQueue;
@@ -87,6 +87,7 @@ public class Emulator8Coordinator {
 		Integer traceStartPc = null;
 		boolean textConsole = false;
 		boolean printTextAtExit = false;
+		boolean noSound = false;
 		Integer resetPFlagValue = null;
 		Integer haltExecution = null;
 		String pasteFile = null;
@@ -125,6 +126,9 @@ public class Emulator8Coordinator {
 			}
 			else if( "--print-text-at-exit".equals(arg) ) {
 				printTextAtExit = true;
+			}
+			else if( "--no-sound".equals(arg) ) {
+				noSound = true;
 			}
 			else if( "--trace-start-pc".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -248,11 +252,16 @@ public class Emulator8Coordinator {
 				display = windowDisplay;
 				hardwareManagerQueue.add(windowDisplay);
 			}
-			try {
-				hardwareManagerQueue.add(new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS));
-			} catch (Exception e) {
-				System.out.println("Warning: Speaker initialization unavailable: " + e.getClass().getSimpleName());
-			}
+				if( noSound ) {
+					System.out.println("Audio disabled: --no-sound");
+				}
+				else {
+					try {
+						hardwareManagerQueue.add(new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS));
+					} catch (Exception e) {
+						System.out.println("Warning: Speaker initialization unavailable: " + e.getClass().getSimpleName());
+					}
+				}
 			((MemoryBusIIe) bus).setKeyboard(keyboard);
 			((MemoryBusIIe) bus).setDisplay(display);
 			hardwareManagerQueue.add(keyboard);
@@ -320,7 +329,7 @@ public class Emulator8Coordinator {
 		if( pasteFile!=null ) {
 			if( keyboard==null )
 				throw new IllegalArgumentException("--paste-file requires a machine layout with KeyboardIIe");
-			pasteText = Files.readString(Path.of(pasteFile), StandardCharsets.UTF_8);
+				pasteText = new String(Files.readAllBytes(Paths.get(pasteFile)), StandardCharsets.UTF_8);
 		}
 
 	   	DecimalFormat format = new DecimalFormat("0.######E0");

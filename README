@@ -56,6 +56,8 @@ Specific `.emu` file:
   - Stop execution when PC reaches the address (hex `0x....` or decimal).
 - `--paste-file <path>`
   - Queue BASIC source text into the keyboard input queue at startup (same CR conversion as paste).
+- `--no-sound`
+  - Disable speaker initialization and run without audio output.
 
 ## Trace output format
 
