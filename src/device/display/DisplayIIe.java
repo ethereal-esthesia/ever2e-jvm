@@ -74,11 +74,14 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private static final int XSIZE = 567;
 	private static final int YSIZE = 384;
 	private static final int SPLIT_DRAW = 320;
-	private static final float WINDOW_BORDER_RATIO = 0.14f;
-	private static final float CONTENT_HALF_SPAN_NDC = 1.0f - (2.0f * WINDOW_BORDER_RATIO);
+	private static final float WINDOW_BORDER_RATIO = 0.07f;
 	private static final float CONTENT_FRACTION = 1.0f - (2.0f * WINDOW_BORDER_RATIO);
-	private static final int WINDOW_WIDTH = Math.round(XSIZE / CONTENT_FRACTION);
-	private static final int WINDOW_HEIGHT = Math.round(YSIZE / CONTENT_FRACTION);
+	private static final int CONTENT_WIDTH = XSIZE + 2;
+	private static final int CONTENT_HEIGHT = YSIZE;
+	private static final int BORDER_X = Math.round((CONTENT_WIDTH * WINDOW_BORDER_RATIO) / CONTENT_FRACTION);
+	private static final int BORDER_Y = Math.round((CONTENT_HEIGHT * WINDOW_BORDER_RATIO) / CONTENT_FRACTION);
+	private static final int WINDOW_WIDTH = CONTENT_WIDTH + (BORDER_X * 2);
+	private static final int WINDOW_HEIGHT = CONTENT_HEIGHT + (BORDER_Y * 2);
 
 	public static final TraceMap8 LO40_TRACE;
 	public static final TraceMap8 HI40_TRACE;
@@ -1241,7 +1244,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			throw new HardwareException("Unable to initialize GLFW");
 		GLFW.glfwDefaultWindowHints();
 		GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_TRUE);
-		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
+		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_FALSE);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 2);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
 		glfwWindow = GLFW.glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Ever2E", 0L, 0L);
@@ -1262,9 +1265,9 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, XSIZE+2, YSIZE, 0,
+		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, CONTENT_WIDTH, CONTENT_HEIGHT, 0,
 				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, (java.nio.IntBuffer) null);
-		uploadPixels = BufferUtils.createIntBuffer((XSIZE+2)*YSIZE);
+		uploadPixels = BufferUtils.createIntBuffer(CONTENT_WIDTH * CONTENT_HEIGHT);
 		GLFW.glfwSetKeyCallback(glfwWindow, (window, key, scancode, action, mods) -> {
 			int awtKeyCode = toAwtKeyCode(key);
 			if( awtKeyCode==KeyEvent.VK_UNDEFINED )
@@ -1694,24 +1697,33 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private void blitToLwjgl(BufferedImage image) {
 		if( glfwWindow==0L )
 			return;
-		int[] pixels = image.getRGB(0, 0, XSIZE+2, YSIZE, null, 0, XSIZE+2);
+		int[] pixels = image.getRGB(0, 0, CONTENT_WIDTH, CONTENT_HEIGHT, null, 0, CONTENT_WIDTH);
 		uploadPixels.clear();
 		uploadPixels.put(pixels);
 		uploadPixels.flip();
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-		GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, XSIZE+2, YSIZE,
+		GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, CONTENT_WIDTH, CONTENT_HEIGHT,
 				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, uploadPixels);
+		java.nio.IntBuffer fbWidth = BufferUtils.createIntBuffer(1);
+		java.nio.IntBuffer fbHeight = BufferUtils.createIntBuffer(1);
+		GLFW.glfwGetFramebufferSize(glfwWindow, fbWidth, fbHeight);
+		int framebufferWidth = fbWidth.get(0);
+		int framebufferHeight = fbHeight.get(0);
+		int contentX = Math.max((framebufferWidth - CONTENT_WIDTH) / 2, 0);
+		int contentY = Math.max((framebufferHeight - CONTENT_HEIGHT) / 2, 0);
+		GL11.glViewport(0, 0, framebufferWidth, framebufferHeight);
 		GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+		GL11.glViewport(contentX, contentY, CONTENT_WIDTH, CONTENT_HEIGHT);
 		GL11.glMatrixMode(GL11.GL_PROJECTION);
 		GL11.glLoadIdentity();
 		GL11.glOrtho(-1, 1, -1, 1, -1, 1);
 		GL11.glMatrixMode(GL11.GL_MODELVIEW);
 		GL11.glLoadIdentity();
 		GL11.glBegin(GL11.GL_QUADS);
-		GL11.glTexCoord2f(0f, 1f); GL11.glVertex2f(-CONTENT_HALF_SPAN_NDC, -CONTENT_HALF_SPAN_NDC);
-		GL11.glTexCoord2f(1f, 1f); GL11.glVertex2f(CONTENT_HALF_SPAN_NDC, -CONTENT_HALF_SPAN_NDC);
-		GL11.glTexCoord2f(1f, 0f); GL11.glVertex2f(CONTENT_HALF_SPAN_NDC, CONTENT_HALF_SPAN_NDC);
-		GL11.glTexCoord2f(0f, 0f); GL11.glVertex2f(-CONTENT_HALF_SPAN_NDC, CONTENT_HALF_SPAN_NDC);
+		GL11.glTexCoord2f(0f, 1f); GL11.glVertex2f(-1f, -1f);
+		GL11.glTexCoord2f(1f, 1f); GL11.glVertex2f(1f, -1f);
+		GL11.glTexCoord2f(1f, 0f); GL11.glVertex2f(1f, 1f);
+		GL11.glTexCoord2f(0f, 0f); GL11.glVertex2f(-1f, 1f);
 		GL11.glEnd();
 		GLFW.glfwSwapBuffers(glfwWindow);
 		GLFW.glfwPollEvents();
