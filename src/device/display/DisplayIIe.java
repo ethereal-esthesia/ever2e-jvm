@@ -1271,7 +1271,10 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL.createCapabilities();
 		GLFW.glfwSwapInterval(1);
 		GLFW.glfwSetFramebufferSizeCallback(glfwWindow, (window, width, height) -> GL11.glViewport(0, 0, width, height));
-		GL11.glViewport(0, 0, XSIZE, YSIZE);
+		java.nio.IntBuffer fbWidth = BufferUtils.createIntBuffer(1);
+		java.nio.IntBuffer fbHeight = BufferUtils.createIntBuffer(1);
+		GLFW.glfwGetFramebufferSize(glfwWindow, fbWidth, fbHeight);
+		GL11.glViewport(0, 0, fbWidth.get(0), fbHeight.get(0));
 		GL11.glEnable(GL11.GL_TEXTURE_2D);
 		textureId = GL11.glGenTextures();
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
