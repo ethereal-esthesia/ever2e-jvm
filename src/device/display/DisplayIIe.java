@@ -59,7 +59,6 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private int [] pal;
 	private int palIndex;
 	private int hueShift = -32;
-	private final boolean useLwjglWindow;
 	private KeyboardIIe keyboard;
 	private long glfwWindow;
 	private int textureId;
@@ -1213,42 +1212,17 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	}
 
 	public DisplayIIe(MemoryBusIIe memoryBus, KeyboardIIe keyboard, long unitsPerCycle) throws HardwareException {
-		this(memoryBus, keyboard, unitsPerCycle, false);
-	}
-
-	public DisplayIIe(MemoryBusIIe memoryBus, KeyboardIIe keyboard, long unitsPerCycle, boolean useLwjglWindow) throws HardwareException {
 	
 		super(unitsPerCycle);
-		this.useLwjglWindow = useLwjglWindow;
 		this.keyboard = keyboard;
 		
 		setMemoryBus(memoryBus);
 		tracer = new ScanlineTracer8();
 		tracer.setScanStart(25, 70);
 		tracer.setScanSize(65, 262);
-		if( useLwjglWindow ) {
-			canvas = null;
-			frame = null;
-			initializeLwjglWindow();
-		}
-		else {
-			canvas = new Canvas32x32();
-			canvas.setBackground(Color.BLACK);
-			canvas.repaint();
-			canvas.addKeyListener(keyboard);
-			canvas.setFocusTraversalKeysEnabled(false);
-			frame = new Frame("Ever2E");
-			frame.addWindowListener(new WindowAdapter() {
-				public void windowClosing(WindowEvent windowEvent){
-					System.exit(0);
-				}
-			});
-			frame.add(canvas);
-			frame.setVisible(true);
-			frame.setSize(XSIZE+(xOff<<1), YSIZE+(yOff<<1)+frame.getInsets().top);
-			frame.addKeyListener(keyboard);
-			frame.setFocusTraversalKeysEnabled(false);
-		}
+		canvas = null;
+		frame = null;
+		initializeLwjglWindow();
 		coldReset();
 	}
 
@@ -1664,12 +1638,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 
 	private void flipPage() {
 		paintPage = bufferPage;
-		if( useLwjglWindow ) {
-			blitToLwjgl(rawDisplay[paintPage]);
-		}
-		else if( canvas!=null ) {
-			canvas.repaint();
-		}
+		blitToLwjgl(rawDisplay[paintPage]);
 		bufferPage = bufferPage==1 ? 0:1;
 		if( showFps ) {
 			fpsFrameCount++;

@@ -60,16 +60,9 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('run', JavaExec) {
     workingDir = projectDir
-}
-
-tasks.register('runLwjgl', JavaExec) {
-    group = 'application'
-    description = 'Run Emulator8Coordinator with LWJGL window backend on macOS first thread.'
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = application.mainClass
-    workingDir = projectDir
-    jvmArgs '-XstartOnFirstThread'
-    args '--window-backend', 'lwjgl'
+    if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+        jvmArgs '-XstartOnFirstThread'
+    }
 }
 
 tasks.register('runHeadless', JavaExec) {
