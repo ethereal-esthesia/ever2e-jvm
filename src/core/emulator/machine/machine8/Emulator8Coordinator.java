@@ -42,6 +42,7 @@ public class Emulator8Coordinator {
 	private static final int GRANULARITY_BITS_PER_MS = 32;
 	private static final boolean ENABLE_STARTUP_JIT_PRIME = true;
 	private static final int STARTUP_JIT_PRIME_STEPS = 300000;
+	private static final long MONITOR_BLOCKING_DEBUG_THRESHOLD_NS = 2_000_000L; // 2ms
 
 	private static int parseByteArg(String value, String argName) {
 		String raw = value.trim();
@@ -98,6 +99,13 @@ public class Emulator8Coordinator {
 			System.setOut(originalOut);
 			silentOut.close();
 		}
+	}
+
+	private static void maybeLogMonitorAdvanceBlocking(boolean debugLogging, long elapsedNs, int cycles) {
+		if( !debugLogging || elapsedNs<MONITOR_BLOCKING_DEBUG_THRESHOLD_NS )
+			return;
+		System.out.println("[debug] monitor_advance_blocked cycles="+cycles+
+				" elapsedMs="+(elapsedNs/1_000_000.0));
 	}
 
 	private static void loadProgramImage(VirtualMachineProperties properties, Memory8 memory, MemoryBus8 bus, byte[] rom16k) {
@@ -223,6 +231,8 @@ public class Emulator8Coordinator {
 				propertiesFile = arg;
 			}
 		}
+		Emulator.setBlockingDebugEnabled(debugLogging);
+		Speaker1Bit.setBlockingDebugEnabled(debugLogging);
 			if( !debugLogging )
 				System.setOut(new PrintStream(OutputStream.nullOutputStream()));
 		tracePhase = tracePhase.trim().toLowerCase();
@@ -411,6 +421,7 @@ public class Emulator8Coordinator {
 	   		final String finalPasteFile = pasteFile;
 	   		final String finalPasteText = pasteText;
 	   		final boolean[] basicQueued = new boolean[] { finalPasteText==null };
+	   		final boolean finalDebugLogging = debugLogging;
 	   		long steps = emulator.startWithStepPhases(maxCpuSteps, cpu, (step, manager, preCycle) -> {
 	   			if( !basicQueued[0] && manager==cpu && preCycle ) {
 	   				queueBasicText(finalKeyboard, finalPasteFile, finalPasteText);
@@ -419,8 +430,17 @@ public class Emulator8Coordinator {
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
 	   				Opcode executed = cpu.getOpcode();
 	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
-	   				if( !"RES".equals(mnemonic) )
-	   					finalHeadlessProbe.advanceCycles(cpu.getLastInstructionCycleCount());
+	   				if( !"RES".equals(mnemonic) ) {
+	   					int monitorCycles = cpu.getLastInstructionCycleCount();
+	   					if( finalDebugLogging ) {
+	   						long monitorStartNs = System.nanoTime();
+	   						finalHeadlessProbe.advanceCycles(monitorCycles);
+	   						maybeLogMonitorAdvanceBlocking(true, System.nanoTime()-monitorStartNs, monitorCycles);
+	   					}
+	   					else {
+	   						finalHeadlessProbe.advanceCycles(monitorCycles);
+	   					}
+	   				}
 	   			}
 	   			if( finalTraceWriter==null && !(preCycle && finalHaltExecution!=null) )
 	   				return true;
@@ -540,6 +560,7 @@ public class Emulator8Coordinator {
 	   		final String finalPasteFile = pasteFile;
 	   		final String finalPasteText = pasteText;
 	   		final boolean[] basicQueued = new boolean[] { finalPasteText==null };
+	   		final boolean finalDebugLogging = debugLogging;
 	   		emulator.startWithStepPhases(-1, cpu, (step, manager, preCycle) -> {
 	   			if( !basicQueued[0] && manager==cpu && preCycle ) {
 	   				queueBasicText(finalKeyboard, finalPasteFile, finalPasteText);
@@ -548,8 +569,17 @@ public class Emulator8Coordinator {
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
 	   				Opcode executed = cpu.getOpcode();
 	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
-	   				if( !"RES".equals(mnemonic) )
-	   					finalHeadlessProbe.advanceCycles(cpu.getLastInstructionCycleCount());
+	   				if( !"RES".equals(mnemonic) ) {
+	   					int monitorCycles = cpu.getLastInstructionCycleCount();
+	   					if( finalDebugLogging ) {
+	   						long monitorStartNs = System.nanoTime();
+	   						finalHeadlessProbe.advanceCycles(monitorCycles);
+	   						maybeLogMonitorAdvanceBlocking(true, System.nanoTime()-monitorStartNs, monitorCycles);
+	   					}
+	   					else {
+	   						finalHeadlessProbe.advanceCycles(monitorCycles);
+	   					}
+	   				}
 	   			}
 	   			return true;
 	   		});

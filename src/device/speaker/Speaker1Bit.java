@@ -11,6 +11,8 @@ import core.memory.memory8.MemoryBusIIe;
 import core.emulator.HardwareManager;
 
 public class Speaker1Bit extends HardwareManager  {
+	private static volatile boolean blockingDebugEnabled;
+	private static final long BLOCKING_DEBUG_THRESHOLD_NS = 15_000_000L; // 15ms
 
 	private static final int SAMPLE_BUFFER_SAMPLES = 1024;   // Lag of 1/40th to 1/20th of a second at 22050Hz
 	private static final float MAX_SOUND_WORD = 32767f;   // Min and max limits on sound resolution
@@ -80,6 +82,10 @@ public class Speaker1Bit extends HardwareManager  {
 			open();
 			Runtime.getRuntime().addShutdownHook(new Thread(this::close));
 		
+	}
+
+	public static void setBlockingDebugEnabled(boolean enabled) {
+		blockingDebugEnabled = enabled;
 	}
 	
 	public void toggle()
@@ -236,7 +242,19 @@ public class Speaker1Bit extends HardwareManager  {
 			buffer[bufferIndex++] = (byte) (sampleInt / 256);
 		}
 		if( bufferIndex>=buffer.length ) {
-			sdl.write(buffer, 0, bufferIndex);
+			int bytesToWrite = bufferIndex;
+			if( blockingDebugEnabled ) {
+				long startNs = System.nanoTime();
+				sdl.write(buffer, 0, bufferIndex);
+				long elapsedNs = System.nanoTime()-startNs;
+				if( elapsedNs>=BLOCKING_DEBUG_THRESHOLD_NS ) {
+					System.out.println("[debug] speaker_write_blocked bytes="+bytesToWrite+
+							" elapsedMs="+(elapsedNs/1_000_000.0));
+				}
+			}
+			else {
+				sdl.write(buffer, 0, bufferIndex);
+			}
 			bufferIndex = 0;
 		}
 	}
@@ -258,7 +276,19 @@ public class Speaker1Bit extends HardwareManager  {
     		return;
     	if( bufferIndex>0 ) {
     		try {
-    			sdl.write(buffer, 0, bufferIndex);
+    			int bytesToWrite = bufferIndex;
+    			if( blockingDebugEnabled ) {
+    				long startNs = System.nanoTime();
+    				sdl.write(buffer, 0, bufferIndex);
+    				long elapsedNs = System.nanoTime()-startNs;
+    				if( elapsedNs>=BLOCKING_DEBUG_THRESHOLD_NS ) {
+    					System.out.println("[debug] speaker_close_write_blocked bytes="+bytesToWrite+
+    							" elapsedMs="+(elapsedNs/1_000_000.0));
+    				}
+    			}
+    			else {
+    				sdl.write(buffer, 0, bufferIndex);
+    			}
     		}
     		catch( Exception e ) {
     			// Ignore write failures during shutdown.
@@ -266,7 +296,17 @@ public class Speaker1Bit extends HardwareManager  {
     		bufferIndex = 0;
     	}
     	// drain() can block on some backends during JVM/window shutdown; flush avoids hangs.
-    	sdl.flush();
+    	if( blockingDebugEnabled ) {
+    		long startNs = System.nanoTime();
+    		sdl.flush();
+    		long elapsedNs = System.nanoTime()-startNs;
+    		if( elapsedNs>=BLOCKING_DEBUG_THRESHOLD_NS ) {
+    			System.out.println("[debug] speaker_flush_blocked elapsedMs="+(elapsedNs/1_000_000.0));
+    		}
+    	}
+    	else {
+    		sdl.flush();
+    	}
     	sdl.stop();
     	sdl.close();
     	closed = true;
@@ -286,7 +326,17 @@ public class Speaker1Bit extends HardwareManager  {
 		muteUntilNs = 0L;
 		if( sdl!=null ) {
 			try {
-				sdl.flush();
+				if( blockingDebugEnabled ) {
+					long startNs = System.nanoTime();
+					sdl.flush();
+					long elapsedNs = System.nanoTime()-startNs;
+					if( elapsedNs>=BLOCKING_DEBUG_THRESHOLD_NS ) {
+						System.out.println("[debug] speaker_reset_flush_blocked elapsedMs="+(elapsedNs/1_000_000.0));
+					}
+				}
+				else {
+					sdl.flush();
+				}
 			}
 			catch( Exception e ) {
 				// Ignore backend-specific flush issues during reset.
