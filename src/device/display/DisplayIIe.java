@@ -64,6 +64,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private long glfwWindow;
 	private int textureId;
 	private java.nio.IntBuffer uploadPixels;
+	private boolean lwjglCapsLockState;
 
 	private static final int PAL_INDEX_COLOR = 0;
 	private static final int PAL_INDEX_MONO = 48;
@@ -1285,6 +1286,8 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			int awtKeyCode = toAwtKeyCode(key);
 			if( awtKeyCode==KeyEvent.VK_UNDEFINED )
 				return;
+			if( key==GLFW.GLFW_KEY_CAPS_LOCK && action==GLFW.GLFW_PRESS )
+				lwjglCapsLockState = !lwjglCapsLockState;
 			int awtModifiers = toAwtModifiers(mods);
 			char keyChar = mapKeyChar(key, scancode, mods);
 			boolean shiftDown = (mods&GLFW.GLFW_MOD_SHIFT)!=0;
@@ -1300,7 +1303,8 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 						" ctrl="+ctrlDown+
 						" alt="+altDown+
 						" meta="+metaDown+
-						" mods=0x"+Integer.toHexString(mods));
+						" mods=0x"+Integer.toHexString(mods)+
+						" capsState="+lwjglCapsLockState);
 			}
 			if( action==GLFW.GLFW_PRESS || action==GLFW.GLFW_REPEAT ) {
 				keyboard.keyPressedRaw(awtKeyCode, awtModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
@@ -1333,7 +1337,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		char out = keyName.charAt(0);
 		if( Character.isLetter(out) ) {
 			boolean shift = (mods&GLFW.GLFW_MOD_SHIFT)!=0;
-			boolean caps = (mods&GLFW.GLFW_MOD_CAPS_LOCK)!=0;
+			boolean caps = lwjglCapsLockState || (mods&GLFW.GLFW_MOD_CAPS_LOCK)!=0;
 			out = (shift ^ caps) ? Character.toUpperCase(out) : Character.toLowerCase(out);
 		}
 		else if( (mods&GLFW.GLFW_MOD_SHIFT)!=0 ) {
