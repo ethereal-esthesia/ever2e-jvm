@@ -1264,6 +1264,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GLFW.glfwMakeContextCurrent(glfwWindow);
 		GL.createCapabilities();
 		GLFW.glfwSwapInterval(1);
+		GLFW.glfwSetInputMode(glfwWindow, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_HIDDEN);
 		GLFW.glfwSetFramebufferSizeCallback(glfwWindow, (window, width, height) -> GL11.glViewport(0, 0, width, height));
 		GLFW.glfwSetWindowPosCallback(glfwWindow, (window, x, y) -> {
 			if( System.nanoTime()<fullscreenTransitionGuardUntilNs )
