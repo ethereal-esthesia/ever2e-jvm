@@ -267,6 +267,7 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F11:          break;
 		case KeyEvent.VK_F12:
 			if( (modifierSet&KEY_MASK_CTRL)!=0 && !isHalted ) {
+				keyQueue.clear();
 				isHalted = true;
 				cpu.setInterruptPending(Cpu65c02.INTERRUPT_HLT);
 			}
