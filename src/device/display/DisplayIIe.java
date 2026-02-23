@@ -64,6 +64,11 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private long glfwWindow;
 	private int textureId;
 	private java.nio.IntBuffer uploadPixels;
+	private boolean fullscreen;
+	private int windowedX;
+	private int windowedY;
+	private int windowedWidth = WINDOW_WIDTH;
+	private int windowedHeight = WINDOW_HEIGHT;
 
 	private static final int PAL_INDEX_COLOR = 0;
 	private static final int PAL_INDEX_MONO = 48;
@@ -1269,11 +1274,18 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, (java.nio.IntBuffer) null);
 		uploadPixels = BufferUtils.createIntBuffer(CONTENT_WIDTH * CONTENT_HEIGHT);
 		GLFW.glfwSetKeyCallback(glfwWindow, (window, key, scancode, action, mods) -> {
+			char keyChar = mapKeyChar(key, scancode, mods);
+			boolean fullscreenToggle = action==GLFW.GLFW_PRESS &&
+					(((mods&GLFW.GLFW_MOD_SUPER)!=0 && (mods&GLFW.GLFW_MOD_CONTROL)!=0 && Character.toLowerCase(keyChar)=='f') ||
+					 ((mods&GLFW.GLFW_MOD_SUPER)!=0 && (key==GLFW.GLFW_KEY_ENTER || key==GLFW.GLFW_KEY_KP_ENTER)));
+			if( fullscreenToggle ) {
+				toggleFullscreen();
+				return;
+			}
 			int awtKeyCode = toAwtKeyCode(key);
 			if( awtKeyCode==KeyEvent.VK_UNDEFINED )
 				return;
 			int awtModifiers = toAwtModifiers(mods);
-			char keyChar = mapKeyChar(key, scancode, mods);
 			boolean shiftDown = (mods&GLFW.GLFW_MOD_SHIFT)!=0;
 			boolean ctrlDown = (mods&GLFW.GLFW_MOD_CONTROL)!=0;
 			boolean altDown = (mods&GLFW.GLFW_MOD_ALT)!=0;
@@ -1296,6 +1308,35 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 				keyboard.keyReleasedRaw(awtKeyCode, awtModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
 			}
 		});
+	}
+
+	private void toggleFullscreen() {
+		if( glfwWindow==0L )
+			return;
+		if( !fullscreen ) {
+			java.nio.IntBuffer xBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer yBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer wBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer hBuf = BufferUtils.createIntBuffer(1);
+			GLFW.glfwGetWindowPos(glfwWindow, xBuf, yBuf);
+			GLFW.glfwGetWindowSize(glfwWindow, wBuf, hBuf);
+			windowedX = xBuf.get(0);
+			windowedY = yBuf.get(0);
+			windowedWidth = wBuf.get(0);
+			windowedHeight = hBuf.get(0);
+			long monitor = GLFW.glfwGetPrimaryMonitor();
+			if( monitor==0L )
+				return;
+			org.lwjgl.glfw.GLFWVidMode mode = GLFW.glfwGetVideoMode(monitor);
+			if( mode==null )
+				return;
+			GLFW.glfwSetWindowMonitor(glfwWindow, monitor, 0, 0, mode.width(), mode.height(), mode.refreshRate());
+			fullscreen = true;
+		}
+		else {
+			GLFW.glfwSetWindowMonitor(glfwWindow, 0L, windowedX, windowedY, windowedWidth, windowedHeight, 0);
+			fullscreen = false;
+		}
 	}
 
 	private int toAwtModifiers(int glfwMods) {

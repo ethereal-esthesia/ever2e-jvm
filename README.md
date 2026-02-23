@@ -88,6 +88,11 @@ Startup behavior:
   - Paste clipboard text into queued keyboard input.
 - `Ctrl+F12`
   - Trigger reset interrupt sequence.
+- `Ctrl+F11`
+  - Ignored in-app (to avoid accidental non-reset actions when users intend `Ctrl+F12`).
+  - Note: macOS often captures `F11` globally (Show Desktop), so the app may not receive it at all.
+- `Ctrl+Cmd+F` or `Cmd+Enter`
+  - Toggle fullscreen window mode (macOS).
 
 ## Trace output format
 

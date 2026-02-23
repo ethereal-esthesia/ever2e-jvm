@@ -264,7 +264,11 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F8:           pushKeyEvent(KEY_MASK_F8); break;
 		case KeyEvent.VK_F9:           pushKeyEvent(KEY_MASK_F9); break;
 		case KeyEvent.VK_F10:          pushKeyEvent(KEY_MASK_F10); break;
-		case KeyEvent.VK_F11:          break;
+		case KeyEvent.VK_F11:
+			// Ignore Ctrl+F11 to avoid accidental non-reset hotkeys when users intend Ctrl+F12.
+			if( ctrlDown || (modifierSet&KEY_MASK_CTRL)!=0 )
+				return;
+			break;
 		case KeyEvent.VK_F12:
 			if( (modifierSet&KEY_MASK_CTRL)!=0 && !isHalted ) {
 				keyQueue.clear();
@@ -383,7 +387,10 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F8:           endPressedKeyEvent(KEY_MASK_F8); break;
 		case KeyEvent.VK_F9:           endPressedKeyEvent(KEY_MASK_F9); break;
 		case KeyEvent.VK_F10:          endPressedKeyEvent(KEY_MASK_F10); break;
-		case KeyEvent.VK_F11:          break;
+		case KeyEvent.VK_F11:
+			if( ctrlDown || (modifierSet&KEY_MASK_CTRL)!=0 )
+				return;
+			break;
 		case KeyEvent.VK_F12:
 			if( isHalted ) {
 				cpu.setInterruptPending(Cpu65c02.INTERRUPT_RES);
