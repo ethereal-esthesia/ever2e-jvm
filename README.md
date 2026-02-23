@@ -54,6 +54,8 @@ Specific `.emu` file:
   - Print the active 40x24 text page on exit (headless/text-console useful).
 - `--show-fps`
   - Print windowed display FPS once per second to stderr.
+- `--window-backend awt|lwjgl`
+  - Select window backend (default `awt`; `lwjgl` is experimental).
 - `--trace-start-pc <addr>`
   - Do not emit trace rows until this PC is reached (inclusive), then continue tracing normally.
 - `--reset-pflag-value <value>`

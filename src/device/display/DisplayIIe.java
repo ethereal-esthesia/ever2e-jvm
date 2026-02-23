@@ -3,12 +3,20 @@ package device.display;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Event;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.Random;
+
+import org.lwjgl.BufferUtils;
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 
 import core.exception.HardwareException;
 import core.memory.memory8.Memory8;
@@ -23,6 +31,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 
 	private Frame frame;
 	private Canvas32x32 canvas;
+	private final Canvas keyEventSource;
 	private Memory8 memory;
 	private MemoryBusIIe memoryBus;
 
@@ -51,6 +60,11 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private int [] pal;
 	private int palIndex;
 	private int hueShift = -32;
+	private final boolean useLwjglWindow;
+	private KeyboardIIe keyboard;
+	private long glfwWindow;
+	private int textureId;
+	private java.nio.IntBuffer uploadPixels;
 
 	private static final int PAL_INDEX_COLOR = 0;
 	private static final int PAL_INDEX_MONO = 48;
@@ -1200,30 +1214,188 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	}
 
 	public DisplayIIe(MemoryBusIIe memoryBus, KeyboardIIe keyboard, long unitsPerCycle) throws HardwareException {
+		this(memoryBus, keyboard, unitsPerCycle, false);
+	}
+
+	public DisplayIIe(MemoryBusIIe memoryBus, KeyboardIIe keyboard, long unitsPerCycle, boolean useLwjglWindow) throws HardwareException {
 	
 		super(unitsPerCycle);
+		this.useLwjglWindow = useLwjglWindow;
+		this.keyboard = keyboard;
+		this.keyEventSource = new Canvas();
 		
 		setMemoryBus(memoryBus);
 		tracer = new ScanlineTracer8();
 		tracer.setScanStart(25, 70);
 		tracer.setScanSize(65, 262);
-		canvas = new Canvas32x32();
-		canvas.setBackground(Color.BLACK);
-		canvas.repaint();
-		canvas.addKeyListener(keyboard);
-		canvas.setFocusTraversalKeysEnabled(false);
-		frame = new Frame("Ever2E");
-		frame.addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent windowEvent){
-				System.exit(0);
+		if( useLwjglWindow ) {
+			canvas = null;
+			frame = null;
+			initializeLwjglWindow();
+		}
+		else {
+			canvas = new Canvas32x32();
+			canvas.setBackground(Color.BLACK);
+			canvas.repaint();
+			canvas.addKeyListener(keyboard);
+			canvas.setFocusTraversalKeysEnabled(false);
+			frame = new Frame("Ever2E");
+			frame.addWindowListener(new WindowAdapter() {
+				public void windowClosing(WindowEvent windowEvent){
+					System.exit(0);
+				}
+			});
+			frame.add(canvas);
+			frame.setVisible(true);
+			frame.setSize(XSIZE+(xOff<<1), YSIZE+(yOff<<1)+frame.getInsets().top);
+			frame.addKeyListener(keyboard);
+			frame.setFocusTraversalKeysEnabled(false);
+		}
+		coldReset();
+	}
+
+	private void initializeLwjglWindow() throws HardwareException {
+		if( !GLFW.glfwInit() )
+			throw new HardwareException("Unable to initialize GLFW");
+		GLFW.glfwDefaultWindowHints();
+		GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_TRUE);
+		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
+		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 2);
+		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
+		glfwWindow = GLFW.glfwCreateWindow(XSIZE, YSIZE, "Ever2E", 0L, 0L);
+		if( glfwWindow==0L ) {
+			GLFW.glfwTerminate();
+			throw new HardwareException("Unable to create GLFW window");
+		}
+		GLFW.glfwMakeContextCurrent(glfwWindow);
+		GL.createCapabilities();
+		GLFW.glfwSwapInterval(1);
+		GLFW.glfwSetFramebufferSizeCallback(glfwWindow, (window, width, height) -> GL11.glViewport(0, 0, width, height));
+		GL11.glViewport(0, 0, XSIZE, YSIZE);
+		GL11.glEnable(GL11.GL_TEXTURE_2D);
+		textureId = GL11.glGenTextures();
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, XSIZE+2, YSIZE, 0,
+				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, (java.nio.IntBuffer) null);
+		uploadPixels = BufferUtils.createIntBuffer((XSIZE+2)*YSIZE);
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			if( glfwWindow!=0L ) {
+				GLFW.glfwDestroyWindow(glfwWindow);
+				glfwWindow = 0L;
+			}
+			GLFW.glfwTerminate();
+		}));
+		GLFW.glfwSetKeyCallback(glfwWindow, (window, key, scancode, action, mods) -> {
+			int awtKeyCode = toAwtKeyCode(key);
+			if( awtKeyCode==KeyEvent.VK_UNDEFINED )
+				return;
+			long when = System.currentTimeMillis();
+			int awtModifiers = toAwtModifiers(mods);
+			char keyChar = mapKeyChar(key, scancode, mods);
+			if( action==GLFW.GLFW_PRESS || action==GLFW.GLFW_REPEAT ) {
+				keyboard.keyPressed(new KeyEvent(keyEventSource, KeyEvent.KEY_PRESSED, when, awtModifiers, awtKeyCode, keyChar));
+			}
+			else if( action==GLFW.GLFW_RELEASE ) {
+				keyboard.keyReleased(new KeyEvent(keyEventSource, KeyEvent.KEY_RELEASED, when, awtModifiers, awtKeyCode, keyChar));
 			}
 		});
-		frame.add(canvas);
-		frame.setVisible(true);
-		frame.setSize(XSIZE+(xOff<<1), YSIZE+(yOff<<1)+frame.getInsets().top);
-		frame.addKeyListener(keyboard);
-		frame.setFocusTraversalKeysEnabled(false);
-		coldReset();
+	}
+
+	private int toAwtModifiers(int glfwMods) {
+		int mods = 0;
+		if( (glfwMods&GLFW.GLFW_MOD_SHIFT)!=0 )
+			mods |= Event.SHIFT_MASK;
+		if( (glfwMods&GLFW.GLFW_MOD_CONTROL)!=0 )
+			mods |= Event.CTRL_MASK;
+		if( (glfwMods&GLFW.GLFW_MOD_ALT)!=0 )
+			mods |= Event.ALT_MASK;
+		if( (glfwMods&GLFW.GLFW_MOD_SUPER)!=0 )
+			mods |= Event.META_MASK;
+		return mods;
+	}
+
+	private char mapKeyChar(int key, int scancode, int mods) {
+		String keyName = GLFW.glfwGetKeyName(key, scancode);
+		if( keyName==null || keyName.isEmpty() )
+			return KeyEvent.CHAR_UNDEFINED;
+		char out = keyName.charAt(0);
+		if( (mods&GLFW.GLFW_MOD_SHIFT)!=0 )
+			out = Character.toUpperCase(out);
+		return out;
+	}
+
+	private int toAwtKeyCode(int key) {
+		switch( key ) {
+			case GLFW.GLFW_KEY_A: return KeyEvent.VK_A;
+			case GLFW.GLFW_KEY_B: return KeyEvent.VK_B;
+			case GLFW.GLFW_KEY_C: return KeyEvent.VK_C;
+			case GLFW.GLFW_KEY_D: return KeyEvent.VK_D;
+			case GLFW.GLFW_KEY_E: return KeyEvent.VK_E;
+			case GLFW.GLFW_KEY_F: return KeyEvent.VK_F;
+			case GLFW.GLFW_KEY_G: return KeyEvent.VK_G;
+			case GLFW.GLFW_KEY_H: return KeyEvent.VK_H;
+			case GLFW.GLFW_KEY_I: return KeyEvent.VK_I;
+			case GLFW.GLFW_KEY_J: return KeyEvent.VK_J;
+			case GLFW.GLFW_KEY_K: return KeyEvent.VK_K;
+			case GLFW.GLFW_KEY_L: return KeyEvent.VK_L;
+			case GLFW.GLFW_KEY_M: return KeyEvent.VK_M;
+			case GLFW.GLFW_KEY_N: return KeyEvent.VK_N;
+			case GLFW.GLFW_KEY_O: return KeyEvent.VK_O;
+			case GLFW.GLFW_KEY_P: return KeyEvent.VK_P;
+			case GLFW.GLFW_KEY_Q: return KeyEvent.VK_Q;
+			case GLFW.GLFW_KEY_R: return KeyEvent.VK_R;
+			case GLFW.GLFW_KEY_S: return KeyEvent.VK_S;
+			case GLFW.GLFW_KEY_T: return KeyEvent.VK_T;
+			case GLFW.GLFW_KEY_U: return KeyEvent.VK_U;
+			case GLFW.GLFW_KEY_V: return KeyEvent.VK_V;
+			case GLFW.GLFW_KEY_W: return KeyEvent.VK_W;
+			case GLFW.GLFW_KEY_X: return KeyEvent.VK_X;
+			case GLFW.GLFW_KEY_Y: return KeyEvent.VK_Y;
+			case GLFW.GLFW_KEY_Z: return KeyEvent.VK_Z;
+			case GLFW.GLFW_KEY_0: return KeyEvent.VK_0;
+			case GLFW.GLFW_KEY_1: return KeyEvent.VK_1;
+			case GLFW.GLFW_KEY_2: return KeyEvent.VK_2;
+			case GLFW.GLFW_KEY_3: return KeyEvent.VK_3;
+			case GLFW.GLFW_KEY_4: return KeyEvent.VK_4;
+			case GLFW.GLFW_KEY_5: return KeyEvent.VK_5;
+			case GLFW.GLFW_KEY_6: return KeyEvent.VK_6;
+			case GLFW.GLFW_KEY_7: return KeyEvent.VK_7;
+			case GLFW.GLFW_KEY_8: return KeyEvent.VK_8;
+			case GLFW.GLFW_KEY_9: return KeyEvent.VK_9;
+			case GLFW.GLFW_KEY_ENTER: return KeyEvent.VK_ENTER;
+			case GLFW.GLFW_KEY_BACKSPACE: return KeyEvent.VK_BACK_SPACE;
+			case GLFW.GLFW_KEY_TAB: return KeyEvent.VK_TAB;
+			case GLFW.GLFW_KEY_ESCAPE: return KeyEvent.VK_ESCAPE;
+			case GLFW.GLFW_KEY_SPACE: return KeyEvent.VK_SPACE;
+			case GLFW.GLFW_KEY_LEFT: return KeyEvent.VK_LEFT;
+			case GLFW.GLFW_KEY_RIGHT: return KeyEvent.VK_RIGHT;
+			case GLFW.GLFW_KEY_UP: return KeyEvent.VK_UP;
+			case GLFW.GLFW_KEY_DOWN: return KeyEvent.VK_DOWN;
+			case GLFW.GLFW_KEY_LEFT_SHIFT:
+			case GLFW.GLFW_KEY_RIGHT_SHIFT: return KeyEvent.VK_SHIFT;
+			case GLFW.GLFW_KEY_LEFT_CONTROL:
+			case GLFW.GLFW_KEY_RIGHT_CONTROL: return KeyEvent.VK_CONTROL;
+			case GLFW.GLFW_KEY_LEFT_ALT:
+			case GLFW.GLFW_KEY_RIGHT_ALT: return KeyEvent.VK_ALT;
+			case GLFW.GLFW_KEY_LEFT_SUPER:
+			case GLFW.GLFW_KEY_RIGHT_SUPER: return KeyEvent.VK_META;
+			case GLFW.GLFW_KEY_INSERT: return KeyEvent.VK_INSERT;
+			case GLFW.GLFW_KEY_F1: return KeyEvent.VK_F1;
+			case GLFW.GLFW_KEY_F2: return KeyEvent.VK_F2;
+			case GLFW.GLFW_KEY_F3: return KeyEvent.VK_F3;
+			case GLFW.GLFW_KEY_F4: return KeyEvent.VK_F4;
+			case GLFW.GLFW_KEY_F5: return KeyEvent.VK_F5;
+			case GLFW.GLFW_KEY_F6: return KeyEvent.VK_F6;
+			case GLFW.GLFW_KEY_F7: return KeyEvent.VK_F7;
+			case GLFW.GLFW_KEY_F8: return KeyEvent.VK_F8;
+			case GLFW.GLFW_KEY_F9: return KeyEvent.VK_F9;
+			case GLFW.GLFW_KEY_F10: return KeyEvent.VK_F10;
+			case GLFW.GLFW_KEY_F11: return KeyEvent.VK_F11;
+			case GLFW.GLFW_KEY_F12: return KeyEvent.VK_F12;
+			default: return KeyEvent.VK_UNDEFINED;
+		}
 	}
 
 	public void setShowFps(boolean showFps) {
@@ -1477,7 +1649,12 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 
 	private void flipPage() {
 		paintPage = bufferPage;
-		canvas.repaint();
+		if( useLwjglWindow ) {
+			blitToLwjgl(rawDisplay[paintPage]);
+		}
+		else if( canvas!=null ) {
+			canvas.repaint();
+		}
 		bufferPage = bufferPage==1 ? 0:1;
 		if( showFps ) {
 			fpsFrameCount++;
@@ -1490,6 +1667,34 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 				fpsFrameCount = 0;
 			}
 		}
+	}
+
+	private void blitToLwjgl(BufferedImage image) {
+		if( glfwWindow==0L )
+			return;
+		int[] pixels = image.getRGB(0, 0, XSIZE+2, YSIZE, null, 0, XSIZE+2);
+		uploadPixels.clear();
+		uploadPixels.put(pixels);
+		uploadPixels.flip();
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+		GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, XSIZE+2, YSIZE,
+				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, uploadPixels);
+		GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+		GL11.glMatrixMode(GL11.GL_PROJECTION);
+		GL11.glLoadIdentity();
+		GL11.glOrtho(-1, 1, -1, 1, -1, 1);
+		GL11.glMatrixMode(GL11.GL_MODELVIEW);
+		GL11.glLoadIdentity();
+		GL11.glBegin(GL11.GL_QUADS);
+		GL11.glTexCoord2f(0f, 1f); GL11.glVertex2f(-1f, -1f);
+		GL11.glTexCoord2f(1f, 1f); GL11.glVertex2f(1f, -1f);
+		GL11.glTexCoord2f(1f, 0f); GL11.glVertex2f(1f, 1f);
+		GL11.glTexCoord2f(0f, 0f); GL11.glVertex2f(-1f, 1f);
+		GL11.glEnd();
+		GLFW.glfwSwapBuffers(glfwWindow);
+		GLFW.glfwPollEvents();
+		if( GLFW.glfwWindowShouldClose(glfwWindow) )
+			System.exit(0);
 	}
 
 	private void cleanEdges() {

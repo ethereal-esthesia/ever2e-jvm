@@ -144,6 +144,7 @@ public class Emulator8Coordinator {
 			boolean textConsole = false;
 			boolean printTextAtExit = false;
 			boolean showFps = false;
+			String windowBackend = "awt";
 			boolean noSound = false;
 			boolean debugLogging = false;
 			Integer resetPFlagValue = null;
@@ -187,6 +188,14 @@ public class Emulator8Coordinator {
 			}
 			else if( "--show-fps".equals(arg) ) {
 				showFps = true;
+			}
+			else if( "--window-backend".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --window-backend");
+				windowBackend = argList[++i].trim().toLowerCase();
+			}
+			else if( arg.startsWith("--window-backend=") ) {
+				windowBackend = arg.substring("--window-backend=".length()).trim().toLowerCase();
 			}
 			else if( "--no-sound".equals(arg) ) {
 				noSound = true;
@@ -242,6 +251,8 @@ public class Emulator8Coordinator {
 		tracePhase = tracePhase.trim().toLowerCase();
 		if( !"pre".equals(tracePhase) && !"post".equals(tracePhase) )
 			throw new IllegalArgumentException("Unsupported --trace-phase value: "+tracePhase+" (expected pre or post)");
+		if( !"awt".equals(windowBackend) && !"lwjgl".equals(windowBackend) )
+			throw new IllegalArgumentException("Unsupported --window-backend value: "+windowBackend+" (expected awt or lwjgl)");
 		System.out.println("Loading \""+propertiesFile+"\" into memory");
 		VirtualMachineProperties properties = new VirtualMachineProperties(propertiesFile);
 
@@ -318,7 +329,8 @@ public class Emulator8Coordinator {
 				display = headlessProbe;
 			}
 			else {
-				DisplayIIe windowDisplay = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
+				DisplayIIe windowDisplay = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier),
+						"lwjgl".equals(windowBackend));
 				windowDisplay.setShowFps(showFps);
 				display = windowDisplay;
 				hardwareManagerQueue.add(windowDisplay);
