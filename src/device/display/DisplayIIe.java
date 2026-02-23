@@ -71,6 +71,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private int windowedY;
 	private int windowedWidth = WINDOW_WIDTH;
 	private int windowedHeight = WINDOW_HEIGHT;
+	private long fullscreenTransitionGuardUntilNs;
 
 	private static final int PAL_INDEX_COLOR = 0;
 	private static final int PAL_INDEX_MONO = 48;
@@ -89,6 +90,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private static final int BORDER_Y = Math.round((CONTENT_HEIGHT * WINDOW_BORDER_RATIO) / CONTENT_FRACTION);
 	private static final int WINDOW_WIDTH = CONTENT_WIDTH + (BORDER_X * 2);
 	private static final int WINDOW_HEIGHT = CONTENT_HEIGHT + (BORDER_Y * 2);
+	private static final long FULLSCREEN_TRANSITION_GUARD_NS = 1_500_000_000L;
 
 	public static final TraceMap8 LO40_TRACE;
 	public static final TraceMap8 HI40_TRACE;
@@ -1251,7 +1253,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			throw new HardwareException("Unable to initialize GLFW");
 		GLFW.glfwDefaultWindowHints();
 		GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_TRUE);
-		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_FALSE);
+		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 2);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
 		glfwWindow = GLFW.glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Ever2E", 0L, 0L);
@@ -1263,6 +1265,23 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL.createCapabilities();
 		GLFW.glfwSwapInterval(1);
 		GLFW.glfwSetFramebufferSizeCallback(glfwWindow, (window, width, height) -> GL11.glViewport(0, 0, width, height));
+		GLFW.glfwSetWindowPosCallback(glfwWindow, (window, x, y) -> {
+			if( System.nanoTime()<fullscreenTransitionGuardUntilNs )
+				return;
+			if( !fullscreen && GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_MAXIMIZED)==GLFW.GLFW_FALSE ) {
+				windowedX = x;
+				windowedY = y;
+			}
+		});
+		GLFW.glfwSetWindowSizeCallback(glfwWindow, (window, width, height) -> {
+			if( System.nanoTime()<fullscreenTransitionGuardUntilNs )
+				return;
+			if( !fullscreen && GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_MAXIMIZED)==GLFW.GLFW_FALSE &&
+					!isLikelyFullscreenSized(width, height) ) {
+				windowedWidth = width;
+				windowedHeight = height;
+			}
+		});
 		java.nio.IntBuffer fbWidth = BufferUtils.createIntBuffer(1);
 		java.nio.IntBuffer fbHeight = BufferUtils.createIntBuffer(1);
 		GLFW.glfwGetFramebufferSize(glfwWindow, fbWidth, fbHeight);
@@ -1270,6 +1289,8 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL11.glEnable(GL11.GL_TEXTURE_2D);
 		textureId = GL11.glGenTextures();
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 		setTextureFiltering(false);
 		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, CONTENT_WIDTH, CONTENT_HEIGHT, 0,
 				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, (java.nio.IntBuffer) null);
@@ -1314,17 +1335,20 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private void toggleFullscreen() {
 		if( glfwWindow==0L )
 			return;
+		fullscreenTransitionGuardUntilNs = System.nanoTime() + FULLSCREEN_TRANSITION_GUARD_NS;
 		if( !fullscreen ) {
-			java.nio.IntBuffer xBuf = BufferUtils.createIntBuffer(1);
-			java.nio.IntBuffer yBuf = BufferUtils.createIntBuffer(1);
-			java.nio.IntBuffer wBuf = BufferUtils.createIntBuffer(1);
-			java.nio.IntBuffer hBuf = BufferUtils.createIntBuffer(1);
-			GLFW.glfwGetWindowPos(glfwWindow, xBuf, yBuf);
-			GLFW.glfwGetWindowSize(glfwWindow, wBuf, hBuf);
-			windowedX = xBuf.get(0);
-			windowedY = yBuf.get(0);
-			windowedWidth = wBuf.get(0);
-			windowedHeight = hBuf.get(0);
+			if( GLFW.glfwGetWindowAttrib(glfwWindow, GLFW.GLFW_MAXIMIZED)==GLFW.GLFW_FALSE ) {
+				java.nio.IntBuffer xBuf = BufferUtils.createIntBuffer(1);
+				java.nio.IntBuffer yBuf = BufferUtils.createIntBuffer(1);
+				java.nio.IntBuffer wBuf = BufferUtils.createIntBuffer(1);
+				java.nio.IntBuffer hBuf = BufferUtils.createIntBuffer(1);
+				GLFW.glfwGetWindowPos(glfwWindow, xBuf, yBuf);
+				GLFW.glfwGetWindowSize(glfwWindow, wBuf, hBuf);
+				windowedX = xBuf.get(0);
+				windowedY = yBuf.get(0);
+				windowedWidth = wBuf.get(0);
+				windowedHeight = hBuf.get(0);
+			}
 			long monitor = GLFW.glfwGetPrimaryMonitor();
 			if( monitor==0L )
 				return;
@@ -1338,6 +1362,17 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			GLFW.glfwSetWindowMonitor(glfwWindow, 0L, windowedX, windowedY, windowedWidth, windowedHeight, 0);
 			fullscreen = false;
 		}
+	}
+
+	private boolean isLikelyFullscreenSized(int width, int height) {
+		long monitor = GLFW.glfwGetPrimaryMonitor();
+		if( monitor==0L )
+			return false;
+		org.lwjgl.glfw.GLFWVidMode mode = GLFW.glfwGetVideoMode(monitor);
+		if( mode==null )
+			return false;
+		return width >= (int) Math.floor(mode.width() * 0.95) &&
+				height >= (int) Math.floor(mode.height() * 0.95);
 	}
 
 	private void setTextureFiltering(boolean linear) {
@@ -1764,23 +1799,17 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GLFW.glfwGetFramebufferSize(glfwWindow, fbWidth, fbHeight);
 		int framebufferWidth = fbWidth.get(0);
 		int framebufferHeight = fbHeight.get(0);
-		int contentX;
-		int contentY;
-		int contentWidth;
-		int contentHeight;
-		if( fullscreen ) {
-			double fitScale = Math.min(framebufferWidth / (double) WINDOW_WIDTH, framebufferHeight / (double) WINDOW_HEIGHT);
-			contentWidth = Math.max(1, (int) Math.round(CONTENT_WIDTH * fitScale));
-			contentHeight = Math.max(1, (int) Math.round(CONTENT_HEIGHT * fitScale));
-			contentX = Math.max((framebufferWidth - contentWidth) / 2, 0);
-			contentY = Math.max((framebufferHeight - contentHeight) / 2, 0);
-		}
-		else {
-			contentWidth = CONTENT_WIDTH;
-			contentHeight = CONTENT_HEIGHT;
-			contentX = Math.max((framebufferWidth - contentWidth) / 2, 0);
-			contentY = Math.max((framebufferHeight - contentHeight) / 2, 0);
-		}
+		double fitScale = Math.min(framebufferWidth / (double) WINDOW_WIDTH, framebufferHeight / (double) WINDOW_HEIGHT);
+		int frameWidth = Math.max(1, (int) Math.round(WINDOW_WIDTH * fitScale));
+		int frameHeight = Math.max(1, (int) Math.round(WINDOW_HEIGHT * fitScale));
+		int frameX = Math.max((framebufferWidth - frameWidth) / 2, 0);
+		int frameY = Math.max((framebufferHeight - frameHeight) / 2, 0);
+		int contentWidth = Math.max(1, (int) Math.round(CONTENT_WIDTH * fitScale));
+		int contentHeight = Math.max(1, (int) Math.round(CONTENT_HEIGHT * fitScale));
+		int borderX = Math.max(0, (int) Math.round(BORDER_X * fitScale));
+		int borderY = Math.max(0, (int) Math.round(BORDER_Y * fitScale));
+		int contentX = frameX + borderX;
+		int contentY = frameY + borderY;
 		GL11.glViewport(0, 0, framebufferWidth, framebufferHeight);
 		GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
 		boolean scaled = contentWidth!=CONTENT_WIDTH || contentHeight!=CONTENT_HEIGHT;
