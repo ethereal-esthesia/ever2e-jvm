@@ -211,11 +211,19 @@ public class KeyboardIIe extends Keyboard {
 
 	@Override
 	public void keyPressed( KeyEvent event ) {
+		handleKeyPressed(event.getKeyCode(), event.getModifiers(), event.getKeyChar(),
+				event.isShiftDown(), event.isControlDown(), event.isAltDown(), event.isMetaDown());
+	}
 
-		int keyIndex = event.getKeyCode();
-		int keyModifiers = event.getModifiers();
+	public void keyPressedRaw(int keyIndex, int keyModifiers, char keyChar,
+			boolean shiftDown, boolean ctrlDown, boolean altDown, boolean metaDown) {
+		handleKeyPressed(keyIndex, keyModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
+	}
+
+	private void handleKeyPressed(int keyIndex, int keyModifiers, char keyChar,
+			boolean shiftDown, boolean ctrlDown, boolean altDown, boolean metaDown) {
 		syncCapsLockState();
-		logKeyProbe("pressed", event);
+		logKeyProbe("pressed", keyIndex, keyChar, shiftDown, ctrlDown, altDown, metaDown, keyModifiers);
 		
 		//System.out.println(KeyEvent.getKeyText(keyIndex)+" "+keyIndex+" "+event.getModifiers());
 
@@ -255,14 +263,14 @@ public class KeyboardIIe extends Keyboard {
 			break;
 		case KeyEvent.VK_INSERT:
 		case KeyEvent.VK_HELP:
-			pushKeyEvent(KEY_MASK_F12, event.isShiftDown() ? KEY_MASK_SHIFT:0);
+			pushKeyEvent(KEY_MASK_F12, shiftDown ? KEY_MASK_SHIFT:0);
 			break;
 
 		default:
 			// Keep control/navigation on keycode path, but use layout-resolved
 			// printable chars for locale-correct text input timing/repeat.
 			if( (modifierSet&KEY_MASK_CTRL)==0 ) {
-				Integer printableChar = mapPrintableChar(event.getKeyChar());
+				Integer printableChar = mapPrintableChar(keyChar);
 				if( printableChar!=null ) {
 					int printablePressToken = toPrintablePressToken(keyIndex);
 					if( !isKeyPressed(printablePressToken) ) {
@@ -324,10 +332,19 @@ public class KeyboardIIe extends Keyboard {
 
 	@Override
 	public void keyReleased( KeyEvent e ) {
+		handleKeyReleased(e.getKeyCode(), e.getModifiers(), e.getKeyChar(),
+				e.isShiftDown(), e.isControlDown(), e.isAltDown(), e.isMetaDown());
+	}
 
-		int keyIndex = e.getKeyCode();
+	public void keyReleasedRaw(int keyIndex, int keyModifiers, char keyChar,
+			boolean shiftDown, boolean ctrlDown, boolean altDown, boolean metaDown) {
+		handleKeyReleased(keyIndex, keyModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
+	}
+
+	private void handleKeyReleased(int keyIndex, int keyModifiers, char keyChar,
+			boolean shiftDown, boolean ctrlDown, boolean altDown, boolean metaDown) {
 		syncCapsLockState();
-		logKeyProbe("released", e);
+		logKeyProbe("released", keyIndex, keyChar, shiftDown, ctrlDown, altDown, metaDown, keyModifiers);
 		
 		switch( keyIndex ) {
 
@@ -550,21 +567,20 @@ public class KeyboardIIe extends Keyboard {
 			modifierSet &= ~KEY_MASK_CAPS;
 	}
 
-	private static void logKeyProbe(String phase, KeyEvent event) {
-		int keyCode = event.getKeyCode();
+	private static void logKeyProbe(String phase, int keyCode, char keyChar,
+			boolean shiftDown, boolean ctrlDown, boolean altDown, boolean metaDown, int modifiersEx) {
 		if( keyCode!=KeyEvent.VK_INSERT && keyCode!=KeyEvent.VK_F11 && keyCode!=KeyEvent.VK_F12 && keyCode!=KeyEvent.VK_HELP )
 			return;
-		char keyChar = event.getKeyChar();
 		String charDesc = keyChar==KeyEvent.CHAR_UNDEFINED ? "undef" : Integer.toString((int) keyChar);
 		System.out.println("[debug] key_probe phase="+phase+
 				" keyCode="+keyCode+
 				" keyText="+KeyEvent.getKeyText(keyCode)+
 				" keyChar="+charDesc+
-				" shiftDown="+event.isShiftDown()+
-				" ctrlDown="+event.isControlDown()+
-				" altDown="+event.isAltDown()+
-				" metaDown="+event.isMetaDown()+
-				" modifiersEx=0x"+Integer.toHexString(event.getModifiersEx()));
+				" shiftDown="+shiftDown+
+				" ctrlDown="+ctrlDown+
+				" altDown="+altDown+
+				" metaDown="+metaDown+
+				" modifiersEx=0x"+Integer.toHexString(modifiersEx));
 	}
 
 }

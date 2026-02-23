@@ -31,7 +31,6 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 
 	private Frame frame;
 	private Canvas32x32 canvas;
-	private final Canvas keyEventSource;
 	private Memory8 memory;
 	private MemoryBusIIe memoryBus;
 
@@ -1222,7 +1221,6 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		super(unitsPerCycle);
 		this.useLwjglWindow = useLwjglWindow;
 		this.keyboard = keyboard;
-		this.keyEventSource = new Canvas();
 		
 		setMemoryBus(memoryBus);
 		tracer = new ScanlineTracer8();
@@ -1287,14 +1285,17 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			int awtKeyCode = toAwtKeyCode(key);
 			if( awtKeyCode==KeyEvent.VK_UNDEFINED )
 				return;
-			long when = System.currentTimeMillis();
 			int awtModifiers = toAwtModifiers(mods);
 			char keyChar = mapKeyChar(key, scancode, mods);
+			boolean shiftDown = (mods&GLFW.GLFW_MOD_SHIFT)!=0;
+			boolean ctrlDown = (mods&GLFW.GLFW_MOD_CONTROL)!=0;
+			boolean altDown = (mods&GLFW.GLFW_MOD_ALT)!=0;
+			boolean metaDown = (mods&GLFW.GLFW_MOD_SUPER)!=0;
 			if( action==GLFW.GLFW_PRESS || action==GLFW.GLFW_REPEAT ) {
-				keyboard.keyPressed(new KeyEvent(keyEventSource, KeyEvent.KEY_PRESSED, when, awtModifiers, awtKeyCode, keyChar));
+				keyboard.keyPressedRaw(awtKeyCode, awtModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
 			}
 			else if( action==GLFW.GLFW_RELEASE ) {
-				keyboard.keyReleased(new KeyEvent(keyEventSource, KeyEvent.KEY_RELEASED, when, awtModifiers, awtKeyCode, keyChar));
+				keyboard.keyReleasedRaw(awtKeyCode, awtModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
 			}
 		});
 	}
