@@ -64,6 +64,8 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private long glfwWindow;
 	private int textureId;
 	private java.nio.IntBuffer uploadPixels;
+	private boolean linearFilteringActive;
+	private boolean textureFilteringInitialized;
 	private boolean fullscreen;
 	private int windowedX;
 	private int windowedY;
@@ -1268,8 +1270,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL11.glEnable(GL11.GL_TEXTURE_2D);
 		textureId = GL11.glGenTextures();
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+		setTextureFiltering(false);
 		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, CONTENT_WIDTH, CONTENT_HEIGHT, 0,
 				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, (java.nio.IntBuffer) null);
 		uploadPixels = BufferUtils.createIntBuffer(CONTENT_WIDTH * CONTENT_HEIGHT);
@@ -1337,6 +1338,19 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			GLFW.glfwSetWindowMonitor(glfwWindow, 0L, windowedX, windowedY, windowedWidth, windowedHeight, 0);
 			fullscreen = false;
 		}
+	}
+
+	private void setTextureFiltering(boolean linear) {
+		if( textureId==0 )
+			return;
+		if( textureFilteringInitialized && linearFilteringActive==linear )
+			return;
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+		int filter = linear ? GL11.GL_LINEAR : GL11.GL_NEAREST;
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, filter);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, filter);
+		linearFilteringActive = linear;
+		textureFilteringInitialized = true;
 	}
 
 	private int toAwtModifiers(int glfwMods) {
@@ -1750,11 +1764,28 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GLFW.glfwGetFramebufferSize(glfwWindow, fbWidth, fbHeight);
 		int framebufferWidth = fbWidth.get(0);
 		int framebufferHeight = fbHeight.get(0);
-		int contentX = Math.max((framebufferWidth - CONTENT_WIDTH) / 2, 0);
-		int contentY = Math.max((framebufferHeight - CONTENT_HEIGHT) / 2, 0);
+		int contentX;
+		int contentY;
+		int contentWidth;
+		int contentHeight;
+		if( fullscreen ) {
+			double fitScale = Math.min(framebufferWidth / (double) WINDOW_WIDTH, framebufferHeight / (double) WINDOW_HEIGHT);
+			contentWidth = Math.max(1, (int) Math.round(CONTENT_WIDTH * fitScale));
+			contentHeight = Math.max(1, (int) Math.round(CONTENT_HEIGHT * fitScale));
+			contentX = Math.max((framebufferWidth - contentWidth) / 2, 0);
+			contentY = Math.max((framebufferHeight - contentHeight) / 2, 0);
+		}
+		else {
+			contentWidth = CONTENT_WIDTH;
+			contentHeight = CONTENT_HEIGHT;
+			contentX = Math.max((framebufferWidth - contentWidth) / 2, 0);
+			contentY = Math.max((framebufferHeight - contentHeight) / 2, 0);
+		}
 		GL11.glViewport(0, 0, framebufferWidth, framebufferHeight);
 		GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
-		GL11.glViewport(contentX, contentY, CONTENT_WIDTH, CONTENT_HEIGHT);
+		boolean scaled = contentWidth!=CONTENT_WIDTH || contentHeight!=CONTENT_HEIGHT;
+		setTextureFiltering(scaled);
+		GL11.glViewport(contentX, contentY, contentWidth, contentHeight);
 		GL11.glMatrixMode(GL11.GL_PROJECTION);
 		GL11.glLoadIdentity();
 		GL11.glOrtho(-1, 1, -1, 1, -1, 1);
