@@ -48,6 +48,10 @@ Specific `.emu` file:
   - Snapshot phase for instruction rows.
 - `--post`
   - Shortcut for `--trace-phase post`.
+- `--text-console`
+  - Run with console text display (no GUI window).
+- `--print-text-at-exit`
+  - Print the active 40x24 text page on exit (headless/text-console useful).
 - `--trace-start-pc <addr>`
   - Do not emit trace rows until this PC is reached (inclusive), then continue tracing normally.
 - `--reset-pflag-value <value>`
@@ -65,6 +69,15 @@ Specific `.emu` file:
 
 Startup behavior:
 - With sound enabled, the emulator performs an internal silent JIT-prime pass (300000 steps) on the same object graph before normal logging begins, to reduce startup audio jitter.
+
+## Keyboard shortcuts
+
+- `Insert`
+  - Clear queued keyboard input.
+- `Shift+Insert`
+  - Paste clipboard text into queued keyboard input.
+- `Ctrl+F12`
+  - Trigger reset interrupt sequence.
 
 ## Trace output format
 

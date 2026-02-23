@@ -243,14 +243,16 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F8:           pushKeyEvent(KEY_MASK_F8); break;
 		case KeyEvent.VK_F9:           pushKeyEvent(KEY_MASK_F9); break;
 		case KeyEvent.VK_F10:          pushKeyEvent(KEY_MASK_F10); break;
-		case KeyEvent.VK_F11:
+		case KeyEvent.VK_F11:          pushKeyEvent(KEY_MASK_F12); break;
+		case KeyEvent.VK_F12:
 			if( (modifierSet&KEY_MASK_CTRL)!=0 && !isHalted ) {
 				isHalted = true;
 				keyEventQueue.add(KEY_EVENT_RESET_PRESS);
 			}
 			break;
 		case KeyEvent.VK_INSERT:
-		case KeyEvent.VK_F12:          pushKeyEvent(KEY_MASK_F12); break;
+			pushKeyEvent(KEY_MASK_F12, event.isShiftDown() ? KEY_MASK_SHIFT:0);
+			break;
 
 		default:
 			// Keep control/navigation on keycode path, but use layout-resolved
@@ -287,16 +289,25 @@ public class KeyboardIIe extends Keyboard {
 	}
 	
 	private int pushKeyEvent( int eventKey ) {
+		return pushKeyEvent(eventKey, 0);
+	}
+
+	private int pushKeyEvent( int eventKey, int forcedModifiers ) {
 		if( !keyPressed.contains(eventKey) )
-			return pushPressedKeyEvent(eventKey);
+			return pushPressedKeyEvent(eventKey, forcedModifiers);
 		return -1;
 	}
 
 	private int pushPressedKeyEvent( int eventKey ) {
+		return pushPressedKeyEvent(eventKey, 0);
+	}
+
+	private int pushPressedKeyEvent( int eventKey, int forcedModifiers ) {
 		keyPressed.add(eventKey);
 		functionKeySet |= eventKey;
-		keyEventQueue.add(functionKeySet|modifierSet);
-		return functionKeySet|modifierSet;
+		int effectiveModifiers = modifierSet|forcedModifiers;
+		keyEventQueue.add(functionKeySet|effectiveModifiers);
+		return functionKeySet|effectiveModifiers;
 	}
 
 	private void endPressedKeyEvent( int eventKey ) {
@@ -338,14 +349,16 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F8:           endPressedKeyEvent(KEY_MASK_F8); break;
 		case KeyEvent.VK_F9:           endPressedKeyEvent(KEY_MASK_F9); break;
 		case KeyEvent.VK_F10:          endPressedKeyEvent(KEY_MASK_F10); break;
-		case KeyEvent.VK_F11:
+		case KeyEvent.VK_F11:          endPressedKeyEvent(KEY_MASK_F12); break;
+		case KeyEvent.VK_F12:
 			if( isHalted ) {
 				keyEventQueue.add(KEY_EVENT_RESET_RELEASE);
 				isHalted = false;
 			}
 			break;
 		case KeyEvent.VK_INSERT:
-		case KeyEvent.VK_F12:          endPressedKeyEvent(KEY_MASK_F12); break;
+			endPressedKeyEvent(KEY_MASK_F12);
+			break;
 
 		default:
 			int printablePressToken = toPrintablePressToken(keyIndex);
