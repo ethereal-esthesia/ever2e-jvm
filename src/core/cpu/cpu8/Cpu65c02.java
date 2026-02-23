@@ -41,7 +41,7 @@ public class Cpu65c02 extends HardwareManager {
 	private int lastCycleCount;
 	private int lastInstructionCycleCount;
 
-	private Opcode interruptPending;
+	private volatile Opcode interruptPending;
 	private boolean isHalted;
 	private Integer resetPOverride;
 	
