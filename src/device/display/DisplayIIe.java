@@ -1283,13 +1283,6 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, XSIZE+2, YSIZE, 0,
 				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, (java.nio.IntBuffer) null);
 		uploadPixels = BufferUtils.createIntBuffer((XSIZE+2)*YSIZE);
-		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-			if( glfwWindow!=0L ) {
-				GLFW.glfwDestroyWindow(glfwWindow);
-				glfwWindow = 0L;
-			}
-			GLFW.glfwTerminate();
-		}));
 		GLFW.glfwSetKeyCallback(glfwWindow, (window, key, scancode, action, mods) -> {
 			int awtKeyCode = toAwtKeyCode(key);
 			if( awtKeyCode==KeyEvent.VK_UNDEFINED )
@@ -1696,8 +1689,22 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL11.glEnd();
 		GLFW.glfwSwapBuffers(glfwWindow);
 		GLFW.glfwPollEvents();
-		if( GLFW.glfwWindowShouldClose(glfwWindow) )
+		if( GLFW.glfwWindowShouldClose(glfwWindow) ) {
+			closeLwjglWindow();
 			System.exit(0);
+		}
+	}
+
+	private void closeLwjglWindow() {
+		if( glfwWindow==0L )
+			return;
+		if( textureId!=0 ) {
+			GL11.glDeleteTextures(textureId);
+			textureId = 0;
+		}
+		GLFW.glfwDestroyWindow(glfwWindow);
+		glfwWindow = 0L;
+		GLFW.glfwTerminate();
 	}
 
 	private void cleanEdges() {
