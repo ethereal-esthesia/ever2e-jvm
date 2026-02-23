@@ -243,7 +243,7 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F8:           pushKeyEvent(KEY_MASK_F8); break;
 		case KeyEvent.VK_F9:           pushKeyEvent(KEY_MASK_F9); break;
 		case KeyEvent.VK_F10:          pushKeyEvent(KEY_MASK_F10); break;
-		case KeyEvent.VK_F11:          pushKeyEvent(KEY_MASK_F12); break;
+		case KeyEvent.VK_F11:          break;
 		case KeyEvent.VK_F12:
 			if( (modifierSet&KEY_MASK_CTRL)!=0 && !isHalted ) {
 				isHalted = true;
@@ -349,7 +349,7 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F8:           endPressedKeyEvent(KEY_MASK_F8); break;
 		case KeyEvent.VK_F9:           endPressedKeyEvent(KEY_MASK_F9); break;
 		case KeyEvent.VK_F10:          endPressedKeyEvent(KEY_MASK_F10); break;
-		case KeyEvent.VK_F11:          endPressedKeyEvent(KEY_MASK_F12); break;
+		case KeyEvent.VK_F11:          break;
 		case KeyEvent.VK_F12:
 			if( isHalted ) {
 				keyEventQueue.add(KEY_EVENT_RESET_RELEASE);
