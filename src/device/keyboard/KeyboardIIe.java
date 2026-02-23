@@ -275,7 +275,7 @@ public class KeyboardIIe extends Keyboard {
 			// Keep control/navigation on keycode path, but use layout-resolved
 			// printable chars for locale-correct text input timing/repeat.
 			if( (modifierSet&KEY_MASK_CTRL)==0 ) {
-				Integer printableChar = mapPrintableChar(keyChar);
+				Integer printableChar = mapPrintableChar(keyChar, shiftDown);
 				if( printableChar!=null ) {
 					int printablePressToken = toPrintablePressToken(keyIndex);
 					if( !isKeyPressed(printablePressToken) ) {
@@ -417,11 +417,16 @@ public class KeyboardIIe extends Keyboard {
 		return PRINTABLE_PRESS_TOKEN_FLAG | (keyIndex&0x0000ffff);
 	}
 
-	private static Integer mapPrintableChar(char keyChar) {
+	private Integer mapPrintableChar(char keyChar, boolean shiftDown) {
 		if( keyChar==KeyEvent.CHAR_UNDEFINED )
 			return null;
 		if( keyChar==0x0a )
 			return 0x0d;
+		if( Character.isLetter(keyChar) ) {
+			boolean capsDown = (modifierSet&KEY_MASK_CAPS)!=0;
+			char normalized = (capsDown ^ shiftDown) ? Character.toUpperCase(keyChar) : Character.toLowerCase(keyChar);
+			return (int) normalized;
+		}
 		if( keyChar>=0x20 && keyChar<=0x7e )
 			return (int) keyChar;
 		return null;
