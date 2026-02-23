@@ -248,7 +248,7 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F12:
 			if( (modifierSet&KEY_MASK_CTRL)!=0 && !isHalted ) {
 				isHalted = true;
-				keyEventQueue.add(KEY_EVENT_RESET_PRESS);
+				cpu.setInterruptPending(Cpu65c02.INTERRUPT_HLT);
 			}
 			break;
 		case KeyEvent.VK_INSERT:
@@ -334,7 +334,7 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_CONTROL:
 			modifierSet &= ~KEY_MASK_CTRL;
 			if( isHalted ) {
-				keyEventQueue.add(KEY_EVENT_RESET_RELEASE);
+				cpu.setInterruptPending(Cpu65c02.INTERRUPT_RES);
 				isHalted = false;
 			}
 			break;
@@ -355,7 +355,7 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F11:          break;
 		case KeyEvent.VK_F12:
 			if( isHalted ) {
-				keyEventQueue.add(KEY_EVENT_RESET_RELEASE);
+				cpu.setInterruptPending(Cpu65c02.INTERRUPT_RES);
 				isHalted = false;
 			}
 			break;
