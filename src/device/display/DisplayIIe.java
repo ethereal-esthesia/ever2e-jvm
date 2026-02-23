@@ -8,6 +8,7 @@ import java.awt.Graphics;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 import java.util.Random;
 
 import core.exception.HardwareException;
@@ -1467,9 +1468,23 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	}
 
 	private void flipPage() {
-		paintPage = bufferPage;
-		canvas.repaint();
-		bufferPage = bufferPage==1 ? 0:1;
+		int completedPage = bufferPage;
+		if( framesDiffer(paintPage, completedPage) ) {
+			paintPage = completedPage;
+			canvas.repaint();
+		}
+		bufferPage = completedPage==1 ? 0:1;
+	}
+
+	private boolean framesDiffer(int leftPage, int rightPage) {
+		int[] left = ((DataBufferInt) rawDisplay[leftPage].getRaster().getDataBuffer()).getData();
+		int[] right = ((DataBufferInt) rawDisplay[rightPage].getRaster().getDataBuffer()).getData();
+		if( left.length!=right.length )
+			return true;
+		for( int i = 0; i<left.length; i++ )
+			if( left[i]!=right[i] )
+				return true;
+		return false;
 	}
 
 	private void cleanEdges() {
