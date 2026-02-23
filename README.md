@@ -1,4 +1,4 @@
-# Ever2e JVM
+# Ever2e
 
 JVM reference implementation and trace source for Apple IIe / 65C02 behavior.
 
@@ -138,4 +138,5 @@ Queue the combined 4-slice opcode monitor loader (generated from `python_port`) 
 
 - Expansion ROM behavior is still under active parity work.
 - Full peripheral fidelity and cycle-accurate parity are incomplete.
+
 
