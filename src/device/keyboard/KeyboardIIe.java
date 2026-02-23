@@ -252,6 +252,7 @@ public class KeyboardIIe extends Keyboard {
 			}
 			break;
 		case KeyEvent.VK_INSERT:
+		case KeyEvent.VK_HELP:
 			pushKeyEvent(KEY_MASK_F12, event.isShiftDown() ? KEY_MASK_SHIFT:0);
 			break;
 
@@ -359,6 +360,7 @@ public class KeyboardIIe extends Keyboard {
 			}
 			break;
 		case KeyEvent.VK_INSERT:
+		case KeyEvent.VK_HELP:
 			endPressedKeyEvent(KEY_MASK_F12);
 			break;
 
