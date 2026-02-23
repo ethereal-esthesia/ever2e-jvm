@@ -1291,6 +1291,17 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			boolean ctrlDown = (mods&GLFW.GLFW_MOD_CONTROL)!=0;
 			boolean altDown = (mods&GLFW.GLFW_MOD_ALT)!=0;
 			boolean metaDown = (mods&GLFW.GLFW_MOD_SUPER)!=0;
+			if( awtKeyCode==KeyEvent.VK_CAPS_LOCK || (awtKeyCode>=KeyEvent.VK_A && awtKeyCode<=KeyEvent.VK_Z) ) {
+				System.err.println("[lwjgl-key] action="+action+
+						" key="+key+
+						" awt="+awtKeyCode+
+						" char="+(keyChar==KeyEvent.CHAR_UNDEFINED ? "undef":Integer.toString((int) keyChar))+
+						" shift="+shiftDown+
+						" ctrl="+ctrlDown+
+						" alt="+altDown+
+						" meta="+metaDown+
+						" mods=0x"+Integer.toHexString(mods));
+			}
 			if( action==GLFW.GLFW_PRESS || action==GLFW.GLFW_REPEAT ) {
 				keyboard.keyPressedRaw(awtKeyCode, awtModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
 			}
