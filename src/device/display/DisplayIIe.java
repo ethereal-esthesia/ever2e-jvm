@@ -1320,8 +1320,14 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		if( keyName==null || keyName.isEmpty() )
 			return KeyEvent.CHAR_UNDEFINED;
 		char out = keyName.charAt(0);
-		if( (mods&GLFW.GLFW_MOD_SHIFT)!=0 )
+		if( Character.isLetter(out) ) {
+			boolean shift = (mods&GLFW.GLFW_MOD_SHIFT)!=0;
+			boolean caps = (mods&GLFW.GLFW_MOD_CAPS_LOCK)!=0;
+			out = (shift ^ caps) ? Character.toUpperCase(out) : Character.toLowerCase(out);
+		}
+		else if( (mods&GLFW.GLFW_MOD_SHIFT)!=0 ) {
 			out = Character.toUpperCase(out);
+		}
 		return out;
 	}
 
