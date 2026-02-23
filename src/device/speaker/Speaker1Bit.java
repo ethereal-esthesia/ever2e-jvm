@@ -42,6 +42,7 @@ public class Speaker1Bit extends HardwareManager  {
 	private SourceDataLine sdl;
 	private int bufferIndex;
 	private boolean closed;
+	private volatile long muteUntilNs;
 
 	private float pos;
 	private float vel;
@@ -64,6 +65,7 @@ public class Speaker1Bit extends HardwareManager  {
 			initializeAudioLine();
 			bufferIndex = 0;
 			closed = false;
+			muteUntilNs = 0L;
         
 		pos = 0f;
 		vel = 0f;
@@ -87,6 +89,10 @@ public class Speaker1Bit extends HardwareManager  {
 		toggleChargeNegative = !toggleChargeNegative;
 	}
 
+	public static int getSkipCycles() {
+		return SKIP_CYCLES;
+	}
+
 	@Override
 	public void cycle() throws HardwareException {
 
@@ -96,6 +102,66 @@ public class Speaker1Bit extends HardwareManager  {
 		}
 		
 		super.incSleepCycles(SKIP_CYCLES);
+		advanceSimulation(true);
+		
+	}
+
+	public synchronized void warmupIterations(int iterations) {
+		if( iterations<=0 )
+			return;
+		boolean savedBusToggle = bus.isSpeakerToggle();
+		float savedPos = pos;
+		float savedVel = vel;
+		boolean savedToggleChargeNegative = toggleChargeNegative;
+		float savedCharge = charge;
+		int savedChargeDur = chargeDur;
+		float savedSampleSum = sampleSum;
+		int savedSampleTotal = sampleTotal;
+		double savedSampleLength = sampleLength;
+		int savedBufferIndex = bufferIndex;
+
+		// Phase 1: touch toggle/charge code paths without emitting audio samples.
+		int branchWarmupIterations = Math.max(CHARGE_DURATION+2, Math.min(iterations, 2048));
+		for( int i = 0; i<branchWarmupIterations; i++ ) {
+			if( (i & 0x1f)==0 )
+				bus.setSpeakerToggle(true);
+			if( bus.isSpeakerToggle() ) {
+				toggle();
+				bus.setSpeakerToggle(false);
+			}
+			advanceSimulation(false);
+		}
+
+		// Phase 2: exercise sample packing and line writes with silent samples.
+		pos = 0f;
+		vel = 0f;
+		toggleChargeNegative = false;
+		charge = 0f;
+		chargeDur = 0;
+		sampleSum = 0f;
+		sampleTotal = 0;
+		sampleLength = 0d;
+		int audioWarmupIterations = Math.max(iterations, SAMPLE_BUFFER_SAMPLES * 2);
+		for( int i = 0; i<audioWarmupIterations; i++ )
+			advanceSimulation(false);
+
+		int silentWriteIterations = Math.max(SAMPLE_BUFFER_SAMPLES * 4, iterations);
+		for( int i = 0; i<silentWriteIterations; i++ )
+			advanceSimulation(true);
+
+		bus.setSpeakerToggle(savedBusToggle);
+		pos = savedPos;
+		vel = savedVel;
+		toggleChargeNegative = savedToggleChargeNegative;
+		charge = savedCharge;
+		chargeDur = savedChargeDur;
+		sampleSum = savedSampleSum;
+		sampleTotal = savedSampleTotal;
+		sampleLength = savedSampleLength;
+		bufferIndex = savedBufferIndex;
+	}
+
+	private void advanceSimulation(boolean emitAudio) {
 		sampleLength += durationInc;
 	
 		// Check for underflow and set variables to 0 as needed to speed up math routines in idle state
@@ -130,14 +196,13 @@ public class Speaker1Bit extends HardwareManager  {
 			sampleSum = sampleSum>MAX_SOUND_WORD ? MAX_SOUND_WORD:sampleSum;
 			sampleSum = sampleSum<MIN_SOUND_WORD ? MIN_SOUND_WORD:sampleSum;
 	
-			writeSample(sampleSum);
+			if( emitAudio )
+				writeSample(sampleSum);
 			sampleLength -= SAMPLE_DURATION;
 			
 			sampleSum = 0f;
 			sampleTotal = 0;
-	
 		}
-	
 	}
 	
     private void initializeAudioLine() throws LineUnavailableException {
@@ -158,7 +223,9 @@ public class Speaker1Bit extends HardwareManager  {
 		throw new LineUnavailableException("No supported SourceDataLine for mono PCM at " + SAMPLE_RATE + "Hz");
 	}
 
-    private void writeSample(float sampleValue) {
+	    private void writeSample(float sampleValue) {
+		if( muteUntilNs>0L && System.nanoTime()<muteUntilNs )
+			return;
 		int sampleInt = Math.round(sampleValue);
 		if( bytesPerSample==2 ) {
 			short sampleShort = (short) sampleInt;
@@ -174,9 +241,16 @@ public class Speaker1Bit extends HardwareManager  {
 		}
 	}
 
-    public void open() throws LineUnavailableException {
+	    public void open() throws LineUnavailableException {
 		sdl.open(audioFormat, buffer.length);
 		sdl.start();
+	}
+
+	public void setStartupMuteMs(int muteMs) {
+		if( muteMs<=0 )
+			muteUntilNs = 0L;
+		else
+			muteUntilNs = System.nanoTime() + (muteMs * 1_000_000L);
 	}
 
     public synchronized void close() {
@@ -200,6 +274,24 @@ public class Speaker1Bit extends HardwareManager  {
 
 	@Override
 	public void coldReset() throws HardwareException {
+		pos = 0f;
+		vel = 0f;
+		toggleChargeNegative = false;
+		charge = 0f;
+		chargeDur = 0;
+		sampleSum = 0f;
+		sampleTotal = 0;
+		sampleLength = 0d;
+		bufferIndex = 0;
+		muteUntilNs = 0L;
+		if( sdl!=null ) {
+			try {
+				sdl.flush();
+			}
+			catch( Exception e ) {
+				// Ignore backend-specific flush issues during reset.
+			}
+		}
 	}
 
 }

@@ -58,6 +58,14 @@ Specific `.emu` file:
   - Queue BASIC source text into the keyboard input queue at startup (same CR conversion as paste).
 - `--no-sound`
   - Disable speaker initialization and run without audio output.
+- `--no-logging`
+  - Suppress emulator stdout logging for the run.
+- `--speaker-warmup-ms <ms>`
+  - Run a silent speaker warmup before emulation starts (helps reduce first-beep JIT jitter). Default is `500` ms.
+- `--speaker-startup-mute-ms <ms>`
+  - Keep speaker muted for the first `<ms>` of emulation after startup. Default is `0` ms.
+- `--skip-startup-jit-preflight`
+  - Skip the built-in in-process preflight (300000 steps) that warms the current machine object graph before normal sound-enabled startup.
 
 ## Trace output format
 

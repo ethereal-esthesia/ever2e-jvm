@@ -3,11 +3,14 @@ package core.emulator.machine.machine8;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.FileWriter;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.awt.GraphicsEnvironment;
 import java.text.DecimalFormat;
+import java.util.Arrays;
 import java.util.PriorityQueue;
 
 
@@ -37,6 +40,10 @@ public class Emulator8Coordinator {
 
 	private static final String DEFAULT_MACHINE = "ROMS/Apple2e.emu";
 	private static final int GRANULARITY_BITS_PER_MS = 32;
+	private static final int DEFAULT_SPEAKER_WARMUP_MS = 500;
+	private static final int DEFAULT_SPEAKER_STARTUP_MUTE_MS = 0;
+	private static final boolean ENABLE_STARTUP_JIT_PREFLIGHT = true;
+	private static final int STARTUP_JIT_PREFLIGHT_STEPS = 300000;
 
 	private static int parseByteArg(String value, String argName) {
 		String raw = value.trim();
@@ -78,6 +85,49 @@ public class Emulator8Coordinator {
 		System.out.println("Queued BASIC paste from "+source+" ("+basicText.length()+" chars)");
 	}
 
+	private interface ThrowingRunnable {
+		void run() throws Exception;
+	}
+
+	private static void runSilently(ThrowingRunnable action) throws Exception {
+		PrintStream originalOut = System.out;
+		PrintStream silentOut = new PrintStream(OutputStream.nullOutputStream());
+		try {
+			System.setOut(silentOut);
+			action.run();
+		}
+		finally {
+			System.setOut(originalOut);
+			silentOut.close();
+		}
+	}
+
+	private static void loadProgramImage(VirtualMachineProperties properties, Memory8 memory, MemoryBus8 bus, byte[] rom16k) {
+		Arrays.fill(rom16k, (byte) 0);
+		byte [] program = properties.getCode();
+
+		// Set up initial ROM or RAM program
+		int addr = properties.getProgramStart();
+		for( byte opcode : program ) {
+			if( bus.getClass()==MemoryBusIIe.class && addr>=MemoryBusIIe.ROM_START )
+				rom16k[addr-MemoryBusIIe.ROM_START] = opcode;
+			else
+				memory.setByte(addr, opcode);
+			addr++;
+		}
+
+		// Set program start
+		if( properties.getCode().length+properties.getProgramStart()<0xfffd ) {
+			if( bus.getClass()==MemoryBusIIe.class ) {
+				rom16k[0xfffc-MemoryBusIIe.ROM_START] = (byte) properties.getProgramStart();
+				rom16k[0xfffd-MemoryBusIIe.ROM_START] = (byte) (properties.getProgramStart()>>8);
+			} else {
+				memory.setByte(0xfffc, properties.getProgramStart());
+				memory.setByte(0xfffd, properties.getProgramStart()>>8);
+			}
+		}
+	}
+
 	public static void main( String[] argList ) throws HardwareException, InterruptedException, IOException {
 
 		String propertiesFile = DEFAULT_MACHINE;
@@ -88,6 +138,10 @@ public class Emulator8Coordinator {
 		boolean textConsole = false;
 		boolean printTextAtExit = false;
 		boolean noSound = false;
+		boolean noLogging = false;
+		int speakerWarmupMs = DEFAULT_SPEAKER_WARMUP_MS;
+		int speakerStartupMuteMs = DEFAULT_SPEAKER_STARTUP_MUTE_MS;
+		boolean skipStartupJitPreflight = false;
 		Integer resetPFlagValue = null;
 		Integer haltExecution = null;
 		String pasteFile = null;
@@ -130,6 +184,28 @@ public class Emulator8Coordinator {
 			else if( "--no-sound".equals(arg) ) {
 				noSound = true;
 			}
+			else if( "--no-logging".equals(arg) ) {
+				noLogging = true;
+			}
+			else if( "--speaker-warmup-ms".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --speaker-warmup-ms");
+				speakerWarmupMs = Math.max(0, Integer.parseInt(argList[++i]));
+			}
+			else if( arg.startsWith("--speaker-warmup-ms=") ) {
+				speakerWarmupMs = Math.max(0, Integer.parseInt(arg.substring("--speaker-warmup-ms=".length())));
+			}
+			else if( "--speaker-startup-mute-ms".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --speaker-startup-mute-ms");
+				speakerStartupMuteMs = Math.max(0, Integer.parseInt(argList[++i]));
+			}
+			else if( arg.startsWith("--speaker-startup-mute-ms=") ) {
+				speakerStartupMuteMs = Math.max(0, Integer.parseInt(arg.substring("--speaker-startup-mute-ms=".length())));
+			}
+			else if( "--skip-startup-jit-preflight".equals(arg) ) {
+				skipStartupJitPreflight = true;
+			}
 			else if( "--trace-start-pc".equals(arg) ) {
 				if( i+1>=argList.length )
 					throw new IllegalArgumentException("Missing value for --trace-start-pc");
@@ -168,6 +244,8 @@ public class Emulator8Coordinator {
 				propertiesFile = arg;
 			}
 		}
+		if( noLogging )
+			System.setOut(new PrintStream(OutputStream.nullOutputStream()));
 		tracePhase = tracePhase.trim().toLowerCase();
 		if( !"pre".equals(tracePhase) && !"post".equals(tracePhase) )
 			throw new IllegalArgumentException("Unsupported --trace-phase value: "+tracePhase+" (expected pre or post)");
@@ -191,8 +269,9 @@ public class Emulator8Coordinator {
 		Memory8 memory = new Memory8(0x20000);
 		MemoryBus8 bus;
 		Cpu65c02 cpu;
-		KeyboardIIe keyboard = null;
-		HeadlessVideoProbe headlessProbe = null;
+			KeyboardIIe keyboard = null;
+			HeadlessVideoProbe headlessProbe = null;
+			Speaker1Bit speaker = null;
 
 		if( properties.getLayout()==MachineLayoutType.DEMO_32x32 ) {
 			bus = new MemoryBusDemo8(memory, keyboard);
@@ -257,7 +336,8 @@ public class Emulator8Coordinator {
 				}
 				else {
 					try {
-						hardwareManagerQueue.add(new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS));
+						speaker = new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS);
+						hardwareManagerQueue.add(speaker);
 					} catch (Exception e) {
 						System.out.println("Warning: Speaker initialization unavailable: " + e.getClass().getSimpleName());
 					}
@@ -267,28 +347,7 @@ public class Emulator8Coordinator {
 			hardwareManagerQueue.add(keyboard);
 		}
 
-		byte [] program = properties.getCode();
-
-		// Set up intial ROM or RAM program
-		int addr = properties.getProgramStart();
-		for( byte opcode : program ) {
-			if( bus.getClass()==MemoryBusIIe.class && addr>=MemoryBusIIe.ROM_START )
-				rom16k[addr-MemoryBusIIe.ROM_START] = opcode;
-			else
-				memory.setByte(addr, opcode);
-			addr++;
-		}
-
-		// Set program start
-		if( properties.getCode().length+properties.getProgramStart()<0xfffd ) {
-			if( bus.getClass()==MemoryBusIIe.class ) {
-				rom16k[0xfffc-MemoryBusIIe.ROM_START] = (byte) properties.getProgramStart();
-				rom16k[0xfffd-MemoryBusIIe.ROM_START] = (byte) (properties.getProgramStart()>>8);
-			} else {
-				memory.setByte(0xfffc, properties.getProgramStart());
-				memory.setByte(0xfffd, properties.getProgramStart()>>8);
-			}
-		}
+		loadProgramImage(properties, memory, bus, rom16k);
 
 		System.out.println();
 		
@@ -320,26 +379,79 @@ public class Emulator8Coordinator {
 				}
 			}
 		
+		Emulator emulator = new Emulate65c02(hardwareManagerQueue, GRANULARITY_BITS_PER_MS);
+		if( ENABLE_STARTUP_JIT_PREFLIGHT && !noSound && !skipStartupJitPreflight ) {
+			final HardwareManager[] preflightManagers = hardwareManagerQueue.toArray(new HardwareManager[hardwareManagerQueue.size()]);
+			try {
+				runSilently(() -> {
+					emulator.startWithStepPhases(STARTUP_JIT_PREFLIGHT_STEPS, cpu, (step, manager, preCycle) -> true);
+					for( HardwareManager manager : preflightManagers ) {
+						manager.coldReset();
+						manager.resetCycleCount();
+					}
+				});
+			}
+			catch( Exception e ) {
+				if( e instanceof HardwareException )
+					throw (HardwareException) e;
+				if( e instanceof InterruptedException )
+					throw (InterruptedException) e;
+				if( e instanceof IOException )
+					throw (IOException) e;
+				throw new RuntimeException("Startup JIT preflight failed", e);
+			}
+			loadProgramImage(properties, memory, bus, rom16k);
+			if( resetPFlagValue!=null )
+				cpu.setResetPOverride(resetPFlagValue);
+		}
+
 		System.out.println();
 		System.out.println("--------------------------------------");
 		System.out.println("          Starting Emulation          ");
 		System.out.println("--------------------------------------");
 		System.out.println();
 
-		if( pasteFile!=null ) {
-			if( keyboard==null )
-				throw new IllegalArgumentException("--paste-file requires a machine layout with KeyboardIIe");
+			if( pasteFile!=null ) {
+				if( keyboard==null )
+					throw new IllegalArgumentException("--paste-file requires a machine layout with KeyboardIIe");
 				pasteText = new String(Files.readAllBytes(Paths.get(pasteFile)), StandardCharsets.UTF_8);
-		}
+			}
+			if( speakerWarmupMs>0 ) {
+				if( speaker==null ) {
+					System.out.println("Speaker warmup skipped: sound is disabled or unavailable");
+				}
+				else {
+					long warmupStartNs = System.nanoTime();
+					int warmupIterations = (int) Math.max(1L, Math.round((cpuClock*(double)speakerWarmupMs/1000d)/Speaker1Bit.getSkipCycles()));
+					System.out.println("Speaker warmup: "+speakerWarmupMs+" ms ("+warmupIterations+" iterations)");
+					speaker.warmupIterations(warmupIterations);
+					long warmupElapsedNs = System.nanoTime() - warmupStartNs;
+					long warmupTargetNs = speakerWarmupMs * 1_000_000L;
+					if( warmupElapsedNs < warmupTargetNs ) {
+						long remainingNs = warmupTargetNs - warmupElapsedNs;
+						long sleepMs = remainingNs / 1_000_000L;
+						int sleepNs = (int) (remainingNs % 1_000_000L);
+						try {
+							Thread.sleep(sleepMs, sleepNs);
+						}
+						catch( InterruptedException ie ) {
+							Thread.currentThread().interrupt();
+						}
+					}
+				}
+			}
+			if( speaker!=null && speakerStartupMuteMs>0 ) {
+				speaker.setStartupMuteMs(speakerStartupMuteMs);
+				System.out.println("Speaker startup mute: "+speakerStartupMuteMs+" ms");
+			}
 
-	   	DecimalFormat format = new DecimalFormat("0.######E0");
+		DecimalFormat format = new DecimalFormat("0.######E0");
 		HardwareManager[] managerList = new HardwareManager[hardwareManagerQueue.size()];
 		for( HardwareManager manager : hardwareManagerQueue.toArray(managerList) )
 			System.out.println(manager.getClass().getSimpleName()+"@"+
 					format.format(cpuClock*unitsPerCycle/manager.getUnitsPerCycle())+"Hz");
 
 		System.out.println("");
-	   	Emulator emulator = new Emulate65c02(hardwareManagerQueue, GRANULARITY_BITS_PER_MS);
 	   	if( resetPFlagValue!=null )
 	   		cpu.setResetPOverride(resetPFlagValue);
 	   	if( maxCpuSteps>=0 ) {
