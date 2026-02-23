@@ -35,6 +35,9 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 
 	private int bufferPage;
 	private int paintPage;
+	private boolean showFps;
+	private long fpsWindowStartNs;
+	private int fpsFrameCount;
 	private int xPaint;
 	private int yPaint;
 	private int colorWord;
@@ -1223,6 +1226,12 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		coldReset();
 	}
 
+	public void setShowFps(boolean showFps) {
+		this.showFps = showFps;
+		this.fpsWindowStartNs = System.nanoTime();
+		this.fpsFrameCount = 0;
+	}
+
 	private class Canvas32x32 extends Canvas {
 
 		private static final long serialVersionUID = 3277512952021171260L;
@@ -1470,6 +1479,17 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		paintPage = bufferPage;
 		canvas.repaint();
 		bufferPage = bufferPage==1 ? 0:1;
+		if( showFps ) {
+			fpsFrameCount++;
+			long nowNs = System.nanoTime();
+			long elapsedNs = nowNs-fpsWindowStartNs;
+			if( elapsedNs>=1_000_000_000L ) {
+				double fps = fpsFrameCount*1_000_000_000.0/elapsedNs;
+				System.err.println(String.format("[fps] %.2f", fps));
+				fpsWindowStartNs = nowNs;
+				fpsFrameCount = 0;
+			}
+		}
 	}
 
 	private void cleanEdges() {
@@ -1513,6 +1533,8 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		rawDisplay = new BufferedImage[2];
 		bufferPage = 0;
 		paintPage = 1;
+		fpsWindowStartNs = System.nanoTime();
+		fpsFrameCount = 0;
 		yPaint = YSIZE-2;
 		rawDisplay[0] = new BufferedImage(XSIZE+2, YSIZE, BufferedImage.TYPE_INT_RGB);
 		rawDisplay[1] = new BufferedImage(XSIZE+2, YSIZE, BufferedImage.TYPE_INT_RGB);

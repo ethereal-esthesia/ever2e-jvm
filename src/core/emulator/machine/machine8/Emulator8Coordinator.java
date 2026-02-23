@@ -143,6 +143,7 @@ public class Emulator8Coordinator {
 		Integer traceStartPc = null;
 			boolean textConsole = false;
 			boolean printTextAtExit = false;
+			boolean showFps = false;
 			boolean noSound = false;
 			boolean debugLogging = false;
 			Integer resetPFlagValue = null;
@@ -183,6 +184,9 @@ public class Emulator8Coordinator {
 			}
 			else if( "--print-text-at-exit".equals(arg) ) {
 				printTextAtExit = true;
+			}
+			else if( "--show-fps".equals(arg) ) {
+				showFps = true;
 			}
 			else if( "--no-sound".equals(arg) ) {
 				noSound = true;
@@ -315,6 +319,7 @@ public class Emulator8Coordinator {
 			}
 			else {
 				DisplayIIe windowDisplay = new DisplayIIe((MemoryBusIIe) bus, keyboard, (long) (unitsPerCycle/displayMultiplier));
+				windowDisplay.setShowFps(showFps);
 				display = windowDisplay;
 				hardwareManagerQueue.add(windowDisplay);
 			}
