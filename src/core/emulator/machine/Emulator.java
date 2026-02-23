@@ -9,9 +9,13 @@ public class Emulator {
 	private static volatile boolean blockingDebugEnabled;
 	private static final long STEP_LISTENER_DEBUG_THRESHOLD_NS = 2_000_000L; // 2ms
 	private static final long MANAGER_CYCLE_DEBUG_THRESHOLD_NS = 20_000_000L; // 20ms
-	private static final long SLEEP_OVERSHOOT_DEBUG_THRESHOLD_NS = 5_000_000L; // 5ms
+	private static final long SPEAKER_MANAGER_CYCLE_DEBUG_THRESHOLD_NS = 200_000_000L; // 200ms
+	private static final long SLEEP_OVERSHOOT_DEBUG_THRESHOLD_NS = 20_000_000L; // 20ms
 	private static final long HANG_WATCHDOG_WARN_NS = 2_000_000_000L; // 2s
 	private static final long HANG_WATCHDOG_POLL_MS = 250L;
+	private static final long MAX_SLEEP_CHUNK_MS = 50L;
+	private static final long ABNORMAL_SLEEP_REQUEST_MS = 500L;
+	private static final int HANG_STACK_TRACE_FRAMES = 8;
 
 	public static interface StepListener {
 		void onStep( long step, HardwareManager manager );
@@ -51,8 +55,7 @@ public class Emulator {
 	}
 
 	public long startWithStepPhases( long maxSteps, HardwareManager stepManager, StepPhaseListener stepPhaseListener ) throws HardwareException, InterruptedException {
-		long timer = System.currentTimeMillis();
-		long oldTime = timer;
+		long schedulerStartNs = System.nanoTime();
 		long steps = 0;
 		final long[] lastProgressNs = new long[] { System.nanoTime() };
 		final long[] opStartNs = new long[] { 0L };
@@ -65,7 +68,7 @@ public class Emulator {
 				while( !Thread.currentThread().isInterrupted() ) {
 					long now = System.nanoTime();
 					long progressAgeNs = now - lastProgressNs[0];
-					if( progressAgeNs>=HANG_WATCHDOG_WARN_NS ) {
+					if( progressAgeNs>=HANG_WATCHDOG_WARN_NS && !currentOperation[0].startsWith("scheduler_sleep(") ) {
 						long opAgeNs = opStartNs[0]==0L ? progressAgeNs : (now-opStartNs[0]);
 						if( now-lastHangReportNs[0]>=HANG_WATCHDOG_WARN_NS ) {
 							lastHangReportNs[0] = now;
@@ -73,6 +76,11 @@ public class Emulator {
 									" stuckMs="+(opAgeNs/1_000_000.0)+
 									" thread="+emulatorThread.getName()+
 									" state="+emulatorThread.getState());
+							StackTraceElement[] stack = emulatorThread.getStackTrace();
+							int maxFrames = Math.min(HANG_STACK_TRACE_FRAMES, stack.length);
+							for( int i = 0; i<maxFrames; i++ ) {
+								System.out.println("[debug] stack["+i+"] "+stack[i]);
+							}
 						}
 					}
 					try {
@@ -90,33 +98,40 @@ public class Emulator {
 		try {
 		do {
 			HardwareManager nextManager = hardwareManagerQueue.remove();
-			long newTime = System.currentTimeMillis();
-			if( newTime-oldTime<0 )
-				timer = newTime;
-			else if( newTime-oldTime>100 )
-				timer += newTime-oldTime-100;
-			oldTime = newTime;
-			long clockTime = newTime-timer;
+			long clockTime = (System.nanoTime()-schedulerStartNs)/1_000_000L;
 			if( maxSteps<0 ) {
 				long waitTime = (nextManager.getNextCycleUnits()>>granularityBitsPerSecond)-clockTime;
 				if( waitTime>0 ) {
 					if( blockingDebugEnabled ) {
 						currentOperation[0] = "scheduler_sleep("+nextManager.getClass().getSimpleName()+")";
 						opStartNs[0] = System.nanoTime();
-						long startNs = System.nanoTime();
-						Thread.sleep(waitTime);
-						long elapsedNs = System.nanoTime()-startNs;
-						long requestedNs = waitTime * 1_000_000L;
-						long overshootNs = elapsedNs-requestedNs;
-						if( overshootNs>=SLEEP_OVERSHOOT_DEBUG_THRESHOLD_NS ) {
-							System.out.println("[debug] scheduler_sleep_overshoot manager="+nextManager.getClass().getSimpleName()+
+						if( waitTime>=ABNORMAL_SLEEP_REQUEST_MS ) {
+							System.out.println("[debug] scheduler_sleep_request_abnormal manager="+nextManager.getClass().getSimpleName()+
 									" requestedMs="+waitTime+
-									" elapsedMs="+(elapsedNs/1_000_000.0)+
-									" overshootMs="+(overshootNs/1_000_000.0));
+									" nextCycleMs="+(nextManager.getNextCycleUnits()>>granularityBitsPerSecond)+
+									" clockMs="+clockTime);
 						}
 					}
-					else {
-						Thread.sleep(waitTime);
+					long remainingSleepMs = waitTime;
+					while( remainingSleepMs>0 ) {
+						long chunkMs = Math.min(remainingSleepMs, MAX_SLEEP_CHUNK_MS);
+						if( blockingDebugEnabled ) {
+							long startNs = System.nanoTime();
+							Thread.sleep(chunkMs);
+							long elapsedNs = System.nanoTime()-startNs;
+							long requestedNs = chunkMs * 1_000_000L;
+							long overshootNs = elapsedNs-requestedNs;
+							if( overshootNs>=SLEEP_OVERSHOOT_DEBUG_THRESHOLD_NS ) {
+								System.out.println("[debug] scheduler_sleep_overshoot manager="+nextManager.getClass().getSimpleName()+
+										" requestedMs="+chunkMs+
+										" elapsedMs="+(elapsedNs/1_000_000.0)+
+										" overshootMs="+(overshootNs/1_000_000.0));
+							}
+						}
+						else {
+							Thread.sleep(chunkMs);
+						}
+						remainingSleepMs -= chunkMs;
 					}
 				}
 			}
@@ -151,7 +166,8 @@ public class Emulator {
 				long startNs = System.nanoTime();
 				nextManager.cycle();
 				long elapsedNs = System.nanoTime()-startNs;
-				if( elapsedNs>=MANAGER_CYCLE_DEBUG_THRESHOLD_NS ) {
+				long cycleThresholdNs = getManagerCycleDebugThresholdNs(nextManager);
+				if( elapsedNs>=cycleThresholdNs ) {
 					System.out.println("[debug] manager_cycle_blocked manager="+nextManager.getClass().getSimpleName()+
 							" elapsedMs="+(elapsedNs/1_000_000.0));
 				}
@@ -199,6 +215,13 @@ public class Emulator {
 				hangWatchdog.interrupt();
 		}
 		return steps;
+	}
+
+	private static long getManagerCycleDebugThresholdNs(HardwareManager manager) {
+		String managerName = manager.getClass().getSimpleName();
+		if( "Speaker1Bit".equals(managerName) )
+			return SPEAKER_MANAGER_CYCLE_DEBUG_THRESHOLD_NS;
+		return MANAGER_CYCLE_DEBUG_THRESHOLD_NS;
 	}
 
 	public void coldReset() throws HardwareException {

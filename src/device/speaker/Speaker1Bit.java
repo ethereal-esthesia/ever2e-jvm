@@ -12,7 +12,7 @@ import core.emulator.HardwareManager;
 
 public class Speaker1Bit extends HardwareManager  {
 	private static volatile boolean blockingDebugEnabled;
-	private static final long BLOCKING_DEBUG_THRESHOLD_NS = 15_000_000L; // 15ms
+	private static final long BLOCKING_DEBUG_THRESHOLD_NS = 100_000_000L; // 100ms
 
 	private static final int SAMPLE_BUFFER_SAMPLES = 1024;   // Lag of 1/40th to 1/20th of a second at 22050Hz
 	private static final float MAX_SOUND_WORD = 32767f;   // Min and max limits on sound resolution
