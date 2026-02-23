@@ -206,6 +206,7 @@ public class KeyboardIIe extends Keyboard {
 				clipboard = null;
 			}
 		}
+		syncCapsLockState();
 	}
 
 	@Override
@@ -213,6 +214,7 @@ public class KeyboardIIe extends Keyboard {
 
 		int keyIndex = event.getKeyCode();
 		int keyModifiers = event.getModifiers();
+		syncCapsLockState();
 		logKeyProbe("pressed", event);
 		
 		//System.out.println(KeyEvent.getKeyText(keyIndex)+" "+keyIndex+" "+event.getModifiers());
@@ -274,8 +276,7 @@ public class KeyboardIIe extends Keyboard {
 				}
 			}
 			byte[] keyCodeArray = KEY_MAP.get(keyIndex);
-			boolean capsLockDown = isCapsLockDown();
-			modIndex = MOD_MAP[modifierSet|(capsLockDown?KEY_MASK_CAPS:0)];
+			modIndex = MOD_MAP[modifierSet&(KEY_MASK_CAPS|KEY_MASK_SHIFT|KEY_MASK_CTRL)];
 			if( keyCodeArray!=null ) {
 				if( !isKeyPressed(keyCodeArray[0]) ) {
 					if( keyQueue.size()==0 )
@@ -325,6 +326,7 @@ public class KeyboardIIe extends Keyboard {
 	public void keyReleased( KeyEvent e ) {
 
 		int keyIndex = e.getKeyCode();
+		syncCapsLockState();
 		logKeyProbe("released", e);
 		
 		switch( keyIndex ) {
@@ -539,6 +541,13 @@ public class KeyboardIIe extends Keyboard {
 		} catch( UnsupportedOperationException e ) {
 			return false;
 		}
+	}
+
+	private void syncCapsLockState() {
+		if( isCapsLockDown() )
+			modifierSet |= KEY_MASK_CAPS;
+		else
+			modifierSet &= ~KEY_MASK_CAPS;
 	}
 
 	private static void logKeyProbe(String phase, KeyEvent event) {
