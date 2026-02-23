@@ -279,7 +279,7 @@ public class KeyboardIIe extends Keyboard {
 		default:
 			// Keep control/navigation on keycode path, but use layout-resolved
 			// printable chars for locale-correct text input timing/repeat.
-			if( (modifierSet&KEY_MASK_CTRL)==0 ) {
+			if( (modifierSet&KEY_MASK_CTRL)==0 && !isNumpadKey(keyIndex) ) {
 				boolean effectiveShiftDown = shiftDown || (modifierSet&KEY_MASK_SHIFT)!=0;
 				Integer printableChar = mapPrintableChar(keyChar, effectiveShiftDown);
 				if( printableChar!=null ) {
@@ -423,6 +423,29 @@ public class KeyboardIIe extends Keyboard {
 		return PRINTABLE_PRESS_TOKEN_FLAG | (keyIndex&0x0000ffff);
 	}
 
+	private static boolean isNumpadKey(int keyIndex) {
+		switch( keyIndex ) {
+		case KeyEvent.VK_NUMPAD0:
+		case KeyEvent.VK_NUMPAD1:
+		case KeyEvent.VK_NUMPAD2:
+		case KeyEvent.VK_NUMPAD3:
+		case KeyEvent.VK_NUMPAD4:
+		case KeyEvent.VK_NUMPAD5:
+		case KeyEvent.VK_NUMPAD6:
+		case KeyEvent.VK_NUMPAD7:
+		case KeyEvent.VK_NUMPAD8:
+		case KeyEvent.VK_NUMPAD9:
+		case KeyEvent.VK_DECIMAL:
+		case KeyEvent.VK_DIVIDE:
+		case KeyEvent.VK_MULTIPLY:
+		case KeyEvent.VK_SUBTRACT:
+		case KeyEvent.VK_ADD:
+			return true;
+		default:
+			return false;
+		}
+	}
+
 	private Integer mapPrintableChar(char keyChar, boolean shiftDown) {
 		if( keyChar==KeyEvent.CHAR_UNDEFINED )
 			return null;
@@ -432,6 +455,37 @@ public class KeyboardIIe extends Keyboard {
 			boolean capsDown = (modifierSet&KEY_MASK_CAPS)!=0;
 			char normalized = (capsDown ^ shiftDown) ? Character.toUpperCase(keyChar) : Character.toLowerCase(keyChar);
 			return (int) normalized;
+		}
+		if( shiftDown && keyChar>='0' && keyChar<='9' ) {
+			switch( keyChar ) {
+			case '1': return (int) '!';
+			case '2': return (int) '@';
+			case '3': return (int) '#';
+			case '4': return (int) '$';
+			case '5': return (int) '%';
+			case '6': return (int) '^';
+			case '7': return (int) '&';
+			case '8': return (int) '*';
+			case '9': return (int) '(';
+			case '0': return (int) ')';
+			default: break;
+			}
+		}
+		if( shiftDown ) {
+			switch( keyChar ) {
+			case '-': return (int) '_';
+			case '=': return (int) '+';
+			case '[': return (int) '{';
+			case ']': return (int) '}';
+			case '\\': return (int) '|';
+			case ';': return (int) ':';
+			case '\'': return (int) '"';
+			case ',': return (int) '<';
+			case '.': return (int) '>';
+			case '/': return (int) '?';
+			case '`': return (int) '~';
+			default: break;
+			}
 		}
 		if( keyChar>=0x20 && keyChar<=0x7e )
 			return (int) keyChar;

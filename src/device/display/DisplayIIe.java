@@ -1362,6 +1362,17 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			case GLFW.GLFW_KEY_7: return KeyEvent.VK_7;
 			case GLFW.GLFW_KEY_8: return KeyEvent.VK_8;
 			case GLFW.GLFW_KEY_9: return KeyEvent.VK_9;
+			case GLFW.GLFW_KEY_MINUS: return KeyEvent.VK_MINUS;
+			case GLFW.GLFW_KEY_EQUAL: return KeyEvent.VK_EQUALS;
+			case GLFW.GLFW_KEY_LEFT_BRACKET: return KeyEvent.VK_OPEN_BRACKET;
+			case GLFW.GLFW_KEY_RIGHT_BRACKET: return KeyEvent.VK_CLOSE_BRACKET;
+			case GLFW.GLFW_KEY_BACKSLASH: return KeyEvent.VK_BACK_SLASH;
+			case GLFW.GLFW_KEY_SEMICOLON: return KeyEvent.VK_SEMICOLON;
+			case GLFW.GLFW_KEY_APOSTROPHE: return KeyEvent.VK_QUOTE;
+			case GLFW.GLFW_KEY_COMMA: return KeyEvent.VK_COMMA;
+			case GLFW.GLFW_KEY_PERIOD: return KeyEvent.VK_PERIOD;
+			case GLFW.GLFW_KEY_SLASH: return KeyEvent.VK_SLASH;
+			case GLFW.GLFW_KEY_GRAVE_ACCENT: return KeyEvent.VK_BACK_QUOTE;
 			case GLFW.GLFW_KEY_ENTER: return KeyEvent.VK_ENTER;
 			case GLFW.GLFW_KEY_BACKSPACE: return KeyEvent.VK_BACK_SPACE;
 			case GLFW.GLFW_KEY_TAB: return KeyEvent.VK_TAB;
@@ -1393,6 +1404,23 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			case GLFW.GLFW_KEY_F10: return KeyEvent.VK_F10;
 			case GLFW.GLFW_KEY_F11: return KeyEvent.VK_F11;
 			case GLFW.GLFW_KEY_F12: return KeyEvent.VK_F12;
+			case GLFW.GLFW_KEY_KP_0: return KeyEvent.VK_NUMPAD0;
+			case GLFW.GLFW_KEY_KP_1: return KeyEvent.VK_NUMPAD1;
+			case GLFW.GLFW_KEY_KP_2: return KeyEvent.VK_NUMPAD2;
+			case GLFW.GLFW_KEY_KP_3: return KeyEvent.VK_NUMPAD3;
+			case GLFW.GLFW_KEY_KP_4: return KeyEvent.VK_NUMPAD4;
+			case GLFW.GLFW_KEY_KP_5: return KeyEvent.VK_NUMPAD5;
+			case GLFW.GLFW_KEY_KP_6: return KeyEvent.VK_NUMPAD6;
+			case GLFW.GLFW_KEY_KP_7: return KeyEvent.VK_NUMPAD7;
+			case GLFW.GLFW_KEY_KP_8: return KeyEvent.VK_NUMPAD8;
+			case GLFW.GLFW_KEY_KP_9: return KeyEvent.VK_NUMPAD9;
+			case GLFW.GLFW_KEY_KP_DECIMAL: return KeyEvent.VK_DECIMAL;
+			case GLFW.GLFW_KEY_KP_DIVIDE: return KeyEvent.VK_DIVIDE;
+			case GLFW.GLFW_KEY_KP_MULTIPLY: return KeyEvent.VK_MULTIPLY;
+			case GLFW.GLFW_KEY_KP_SUBTRACT: return KeyEvent.VK_SUBTRACT;
+			case GLFW.GLFW_KEY_KP_ADD: return KeyEvent.VK_ADD;
+			case GLFW.GLFW_KEY_KP_ENTER: return KeyEvent.VK_ENTER;
+			case GLFW.GLFW_KEY_KP_EQUAL: return KeyEvent.VK_EQUALS;
 			default: return KeyEvent.VK_UNDEFINED;
 		}
 	}
