@@ -74,6 +74,11 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private static final int XSIZE = 567;
 	private static final int YSIZE = 384;
 	private static final int SPLIT_DRAW = 320;
+	private static final float WINDOW_BORDER_RATIO = 0.14f;
+	private static final float CONTENT_HALF_SPAN_NDC = 1.0f - (2.0f * WINDOW_BORDER_RATIO);
+	private static final float CONTENT_FRACTION = 1.0f - (2.0f * WINDOW_BORDER_RATIO);
+	private static final int WINDOW_WIDTH = Math.round(XSIZE / CONTENT_FRACTION);
+	private static final int WINDOW_HEIGHT = Math.round(YSIZE / CONTENT_FRACTION);
 
 	public static final TraceMap8 LO40_TRACE;
 	public static final TraceMap8 HI40_TRACE;
@@ -1239,7 +1244,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 2);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
-		glfwWindow = GLFW.glfwCreateWindow(XSIZE, YSIZE, "Ever2E", 0L, 0L);
+		glfwWindow = GLFW.glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Ever2E", 0L, 0L);
 		if( glfwWindow==0L ) {
 			GLFW.glfwTerminate();
 			throw new HardwareException("Unable to create GLFW window");
@@ -1675,10 +1680,10 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL11.glMatrixMode(GL11.GL_MODELVIEW);
 		GL11.glLoadIdentity();
 		GL11.glBegin(GL11.GL_QUADS);
-		GL11.glTexCoord2f(0f, 1f); GL11.glVertex2f(-1f, -1f);
-		GL11.glTexCoord2f(1f, 1f); GL11.glVertex2f(1f, -1f);
-		GL11.glTexCoord2f(1f, 0f); GL11.glVertex2f(1f, 1f);
-		GL11.glTexCoord2f(0f, 0f); GL11.glVertex2f(-1f, 1f);
+		GL11.glTexCoord2f(0f, 1f); GL11.glVertex2f(-CONTENT_HALF_SPAN_NDC, -CONTENT_HALF_SPAN_NDC);
+		GL11.glTexCoord2f(1f, 1f); GL11.glVertex2f(CONTENT_HALF_SPAN_NDC, -CONTENT_HALF_SPAN_NDC);
+		GL11.glTexCoord2f(1f, 0f); GL11.glVertex2f(CONTENT_HALF_SPAN_NDC, CONTENT_HALF_SPAN_NDC);
+		GL11.glTexCoord2f(0f, 0f); GL11.glVertex2f(-CONTENT_HALF_SPAN_NDC, CONTENT_HALF_SPAN_NDC);
 		GL11.glEnd();
 		GLFW.glfwSwapBuffers(glfwWindow);
 		GLFW.glfwPollEvents();

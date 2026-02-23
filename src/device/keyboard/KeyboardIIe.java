@@ -280,7 +280,8 @@ public class KeyboardIIe extends Keyboard {
 			// Keep control/navigation on keycode path, but use layout-resolved
 			// printable chars for locale-correct text input timing/repeat.
 			if( (modifierSet&KEY_MASK_CTRL)==0 ) {
-				Integer printableChar = mapPrintableChar(keyChar, shiftDown);
+				boolean effectiveShiftDown = shiftDown || (modifierSet&KEY_MASK_SHIFT)!=0;
+				Integer printableChar = mapPrintableChar(keyChar, effectiveShiftDown);
 				if( printableChar!=null ) {
 					int printablePressToken = toPrintablePressToken(keyIndex);
 					if( !isKeyPressed(printablePressToken) ) {
