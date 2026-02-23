@@ -154,4 +154,23 @@ Queue the combined 4-slice opcode monitor loader (generated from `python_port`) 
 - Expansion ROM behavior is still under active parity work.
 - Full peripheral fidelity and cycle-accurate parity are incomplete.
 
+## macOS Caps Lock popup workaround
+
+On some macOS versions, the system Caps Lock HUD can still appear over fullscreen emulator output.
+If needed, an OS-level workaround from community reports is:
+
+```bash
+sudo defaults write /Library/Preferences/FeatureFlags/Domain/UIKit.plist redesigned_text_cursor -dict-add Enabled -bool NO
+```
+
+Then reboot macOS.
+
+To revert:
+
+```bash
+sudo defaults delete /Library/Preferences/FeatureFlags/Domain/UIKit.plist redesigned_text_cursor
+```
+
+Then reboot macOS again.
+
 
