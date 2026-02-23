@@ -183,10 +183,16 @@ public class Speaker1Bit extends HardwareManager  {
     	if( closed || sdl==null )
     		return;
     	if( bufferIndex>0 ) {
-    		sdl.write(buffer, 0, bufferIndex);
+    		try {
+    			sdl.write(buffer, 0, bufferIndex);
+    		}
+    		catch( Exception e ) {
+    			// Ignore write failures during shutdown.
+    		}
     		bufferIndex = 0;
     	}
-    	sdl.drain();
+    	// drain() can block on some backends during JVM/window shutdown; flush avoids hangs.
+    	sdl.flush();
     	sdl.stop();
     	sdl.close();
     	closed = true;

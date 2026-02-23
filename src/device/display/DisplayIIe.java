@@ -1240,6 +1240,12 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			g.drawImage(rawDisplay[paintPage], xOff, yOff, this);
 		}
 
+		@Override
+		public void update(Graphics g) {
+			// Avoid AWT background clear between frames, which causes visible flicker.
+			paint(g);
+		}
+
 	}
 
 	private void evaluateSwitchChange() {
