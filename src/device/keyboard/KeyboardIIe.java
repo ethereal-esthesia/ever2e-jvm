@@ -213,6 +213,7 @@ public class KeyboardIIe extends Keyboard {
 
 		int keyIndex = event.getKeyCode();
 		int keyModifiers = event.getModifiers();
+		logKeyProbe("pressed", event);
 		
 		//System.out.println(KeyEvent.getKeyText(keyIndex)+" "+keyIndex+" "+event.getModifiers());
 
@@ -323,6 +324,7 @@ public class KeyboardIIe extends Keyboard {
 	public void keyReleased( KeyEvent e ) {
 
 		int keyIndex = e.getKeyCode();
+		logKeyProbe("released", e);
 		
 		switch( keyIndex ) {
 
@@ -535,6 +537,23 @@ public class KeyboardIIe extends Keyboard {
 		} catch( UnsupportedOperationException e ) {
 			return false;
 		}
+	}
+
+	private static void logKeyProbe(String phase, KeyEvent event) {
+		int keyCode = event.getKeyCode();
+		if( keyCode!=KeyEvent.VK_INSERT && keyCode!=KeyEvent.VK_F11 && keyCode!=KeyEvent.VK_F12 && keyCode!=KeyEvent.VK_HELP )
+			return;
+		char keyChar = event.getKeyChar();
+		String charDesc = keyChar==KeyEvent.CHAR_UNDEFINED ? "undef" : Integer.toString((int) keyChar);
+		System.out.println("[debug] key_probe phase="+phase+
+				" keyCode="+keyCode+
+				" keyText="+KeyEvent.getKeyText(keyCode)+
+				" keyChar="+charDesc+
+				" shiftDown="+event.isShiftDown()+
+				" ctrlDown="+event.isControlDown()+
+				" altDown="+event.isAltDown()+
+				" metaDown="+event.isMetaDown()+
+				" modifiersEx=0x"+Integer.toHexString(event.getModifiersEx()));
 	}
 
 }
