@@ -29,6 +29,7 @@ public class KeyboardIIe extends Keyboard {
 
 	private int modifierSet;
 	private int functionKeySet;
+	private boolean capsLockState;
 	private boolean optionKey;
 	private boolean appleKey;
 	private byte keyCode;
@@ -206,7 +207,8 @@ public class KeyboardIIe extends Keyboard {
 				clipboard = null;
 			}
 		}
-		syncCapsLockState();
+		capsLockState = isCapsLockDown();
+		applyCapsLockState();
 	}
 
 	@Override
@@ -228,11 +230,14 @@ public class KeyboardIIe extends Keyboard {
 		//System.out.println(KeyEvent.getKeyText(keyIndex)+" "+keyIndex+" "+event.getModifiers());
 
 		// Workaround for action keys mistaken as caps-key AWT bug
-		if( keyIndex==KeyEvent.VK_CAPS_LOCK ) { 
+		if( keyIndex==KeyEvent.VK_CAPS_LOCK ) {
+			capsLockState = !capsLockState;
+			applyCapsLockState();
 			if( (keyModifiers&Event.SHIFT_MASK)!=0 )
 				modifierSet |= KEY_MASK_SHIFT;
 			if( (keyModifiers&Event.CTRL_MASK)!=0 )
 				modifierSet |= KEY_MASK_CTRL;
+			return;
 		}
 		
 		switch( keyIndex ) {
@@ -548,6 +553,8 @@ public class KeyboardIIe extends Keyboard {
 		delayCount = 0;
 		queuedKeyCount = 0L;
 		consumedQueuedKeyCount = 0L;
+		capsLockState = isCapsLockDown();
+		applyCapsLockState();
 	}
 
 	private boolean isCapsLockDown() {
@@ -561,7 +568,13 @@ public class KeyboardIIe extends Keyboard {
 	}
 
 	private void syncCapsLockState() {
-		if( isCapsLockDown() )
+		if( toolKit!=null )
+			capsLockState = isCapsLockDown();
+		applyCapsLockState();
+	}
+
+	private void applyCapsLockState() {
+		if( capsLockState )
 			modifierSet |= KEY_MASK_CAPS;
 		else
 			modifierSet &= ~KEY_MASK_CAPS;

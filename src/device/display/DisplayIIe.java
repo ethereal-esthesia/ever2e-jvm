@@ -1310,6 +1310,8 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			mods |= Event.ALT_MASK;
 		if( (glfwMods&GLFW.GLFW_MOD_SUPER)!=0 )
 			mods |= Event.META_MASK;
+		if( (glfwMods&GLFW.GLFW_MOD_CAPS_LOCK)!=0 )
+			mods |= Event.CAPS_LOCK;
 		return mods;
 	}
 
@@ -1374,6 +1376,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			case GLFW.GLFW_KEY_RIGHT_SHIFT: return KeyEvent.VK_SHIFT;
 			case GLFW.GLFW_KEY_LEFT_CONTROL:
 			case GLFW.GLFW_KEY_RIGHT_CONTROL: return KeyEvent.VK_CONTROL;
+			case GLFW.GLFW_KEY_CAPS_LOCK: return KeyEvent.VK_CAPS_LOCK;
 			case GLFW.GLFW_KEY_LEFT_ALT:
 			case GLFW.GLFW_KEY_RIGHT_ALT: return KeyEvent.VK_ALT;
 			case GLFW.GLFW_KEY_LEFT_SUPER:
