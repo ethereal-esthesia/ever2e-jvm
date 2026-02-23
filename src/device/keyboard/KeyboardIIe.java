@@ -19,6 +19,7 @@ import core.cpu.cpu8.Cpu65c02;
 import core.exception.HardwareException;
 
 public class KeyboardIIe extends Keyboard {
+	private static volatile boolean keyLoggingEnabled;
 
 	private Cpu65c02 cpu;
 
@@ -209,6 +210,10 @@ public class KeyboardIIe extends Keyboard {
 		}
 		capsLockState = isCapsLockDown();
 		applyCapsLockState();
+	}
+
+	public static void setKeyLoggingEnabled(boolean enabled) {
+		keyLoggingEnabled = enabled;
 	}
 
 	@Override
@@ -587,10 +592,12 @@ public class KeyboardIIe extends Keyboard {
 
 	private static void logKeyProbe(String phase, int keyCode, char keyChar,
 			boolean shiftDown, boolean ctrlDown, boolean altDown, boolean metaDown, int modifiersEx) {
+		if( !keyLoggingEnabled )
+			return;
 		if( keyCode!=KeyEvent.VK_INSERT && keyCode!=KeyEvent.VK_F11 && keyCode!=KeyEvent.VK_F12 && keyCode!=KeyEvent.VK_HELP )
 			return;
 		String charDesc = keyChar==KeyEvent.CHAR_UNDEFINED ? "undef" : Integer.toString((int) keyChar);
-		System.out.println("[debug] key_probe phase="+phase+
+		System.err.println("[debug] key_probe phase="+phase+
 				" keyCode="+keyCode+
 				" keyText="+KeyEvent.getKeyText(keyCode)+
 				" keyChar="+charDesc+

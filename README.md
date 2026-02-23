@@ -74,6 +74,8 @@ Windowed run (LWJGL):
   - Enable emulator stdout logging (logging is quiet by default).
 - `--no-logging`
   - Force quiet mode (kept for compatibility).
+- `--keylog`
+  - Enable keyboard input logging to stderr (`[lwjgl-key]` and key probe events).
 
 Startup behavior:
 - With sound enabled, the emulator performs an internal silent JIT-prime pass (300000 steps) on the same object graph before normal logging begins, to reduce startup audio jitter.

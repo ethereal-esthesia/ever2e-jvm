@@ -26,6 +26,7 @@ import device.display.display8.TraceMap8;
 import device.keyboard.KeyboardIIe;
 
 public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
+	private static volatile boolean keyLoggingEnabled;
 
 	private ScanlineTracer8 tracer;
 
@@ -1226,6 +1227,10 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		coldReset();
 	}
 
+	public static void setKeyLoggingEnabled(boolean enabled) {
+		keyLoggingEnabled = enabled;
+	}
+
 	private void initializeLwjglWindow() throws HardwareException {
 		if( !GLFW.glfwInit() )
 			throw new HardwareException("Unable to initialize GLFW");
@@ -1265,7 +1270,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 			boolean ctrlDown = (mods&GLFW.GLFW_MOD_CONTROL)!=0;
 			boolean altDown = (mods&GLFW.GLFW_MOD_ALT)!=0;
 			boolean metaDown = (mods&GLFW.GLFW_MOD_SUPER)!=0;
-			if( awtKeyCode==KeyEvent.VK_CAPS_LOCK || (awtKeyCode>=KeyEvent.VK_A && awtKeyCode<=KeyEvent.VK_Z) ) {
+			if( keyLoggingEnabled ) {
 				System.err.println("[lwjgl-key] action="+action+
 						" key="+key+
 						" awt="+awtKeyCode+

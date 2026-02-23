@@ -146,6 +146,7 @@ public class Emulator8Coordinator {
 			boolean showFps = false;
 			boolean noSound = false;
 			boolean debugLogging = false;
+			boolean keyLogging = false;
 			Integer resetPFlagValue = null;
 			Integer haltExecution = null;
 			String pasteFile = null;
@@ -197,6 +198,9 @@ public class Emulator8Coordinator {
 			else if( "--debug".equals(arg) ) {
 				debugLogging = true;
 			}
+			else if( "--keylog".equals(arg) ) {
+				keyLogging = true;
+			}
 			else if( "--trace-start-pc".equals(arg) ) {
 				if( i+1>=argList.length )
 					throw new IllegalArgumentException("Missing value for --trace-start-pc");
@@ -237,6 +241,8 @@ public class Emulator8Coordinator {
 		}
 		Emulator.setBlockingDebugEnabled(debugLogging);
 		Speaker1Bit.setBlockingDebugEnabled(debugLogging);
+		KeyboardIIe.setKeyLoggingEnabled(keyLogging);
+		DisplayIIe.setKeyLoggingEnabled(keyLogging);
 			if( !debugLogging )
 				System.setOut(new PrintStream(OutputStream.nullOutputStream()));
 		tracePhase = tracePhase.trim().toLowerCase();
