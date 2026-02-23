@@ -380,16 +380,13 @@ public class Emulator8Coordinator {
 			}
 		
 		Emulator emulator = new Emulate65c02(hardwareManagerQueue, GRANULARITY_BITS_PER_MS);
+		boolean didStartupJitPreflight = false;
 		if( ENABLE_STARTUP_JIT_PREFLIGHT && !noSound && !skipStartupJitPreflight ) {
-			final HardwareManager[] preflightManagers = hardwareManagerQueue.toArray(new HardwareManager[hardwareManagerQueue.size()]);
 			try {
 				runSilently(() -> {
 					emulator.startWithStepPhases(STARTUP_JIT_PREFLIGHT_STEPS, cpu, (step, manager, preCycle) -> true);
-					for( HardwareManager manager : preflightManagers ) {
-						manager.coldReset();
-						manager.resetCycleCount();
-					}
 				});
+				didStartupJitPreflight = true;
 			}
 			catch( Exception e ) {
 				if( e instanceof HardwareException )
@@ -400,9 +397,6 @@ public class Emulator8Coordinator {
 					throw (IOException) e;
 				throw new RuntimeException("Startup JIT preflight failed", e);
 			}
-			loadProgramImage(properties, memory, bus, rom16k);
-			if( resetPFlagValue!=null )
-				cpu.setResetPOverride(resetPFlagValue);
 		}
 
 		System.out.println();
@@ -416,7 +410,7 @@ public class Emulator8Coordinator {
 					throw new IllegalArgumentException("--paste-file requires a machine layout with KeyboardIIe");
 				pasteText = new String(Files.readAllBytes(Paths.get(pasteFile)), StandardCharsets.UTF_8);
 			}
-			if( speakerWarmupMs>0 ) {
+			if( speakerWarmupMs>0 && !didStartupJitPreflight ) {
 				if( speaker==null ) {
 					System.out.println("Speaker warmup skipped: sound is disabled or unavailable");
 				}
@@ -588,10 +582,14 @@ public class Emulator8Coordinator {
 				System.out.println("basic_queue queued="+keyboard.getQueuedKeyCount()+
 						" consumed="+keyboard.getConsumedQueuedKeyCount()+
 						" remaining="+keyboard.getQueuedKeyDepth());
-			if( traceFile!=null )
-				System.out.println("Trace written: "+traceFile);
-			if( printTextAtExit && bus instanceof MemoryBusIIe )
-				printTextScreen((MemoryBusIIe) bus, memory);
+				if( traceFile!=null )
+					System.out.println("Trace written: "+traceFile);
+				if( printTextAtExit && bus instanceof MemoryBusIIe )
+					printTextScreen((MemoryBusIIe) bus, memory);
+				// In windowed mode, AWT's event thread keeps the process alive after bounded runs.
+				// Exit explicitly so `--steps` behaves as a finite run.
+				if( !GraphicsEnvironment.isHeadless() && !textConsole )
+					System.exit(0);
 	   	}
 	   	else {
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
