@@ -38,6 +38,12 @@ Specific `.emu` file:
 ./gradlew runHeadless --args="ROMS/Apple2e.emu"
 ```
 
+LWJGL window backend (macOS):
+
+```bash
+./gradlew runLwjgl
+```
+
 ## CLI args
 
 - `--steps N`

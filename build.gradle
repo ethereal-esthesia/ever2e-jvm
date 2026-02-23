@@ -62,6 +62,16 @@ tasks.named('run', JavaExec) {
     workingDir = projectDir
 }
 
+tasks.register('runLwjgl', JavaExec) {
+    group = 'application'
+    description = 'Run Emulator8Coordinator with LWJGL window backend on macOS first thread.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = application.mainClass
+    workingDir = projectDir
+    jvmArgs '-XstartOnFirstThread'
+    args '--window-backend', 'lwjgl'
+}
+
 tasks.register('runHeadless', JavaExec) {
     group = 'application'
     description = 'Run Emulator8Coordinator with headless AWT mode enabled.'
