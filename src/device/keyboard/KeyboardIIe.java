@@ -60,6 +60,7 @@ public class KeyboardIIe extends Keyboard {
 	private static final int KEY_MASK_F12 = 0x00080000;
 	private static final int KEY_EVENT_RESET_PRESS = 0x40040000;
 	private static final int KEY_EVENT_RESET_RELEASE = 0x80040000;
+	private static final int PRINTABLE_PRESS_TOKEN_FLAG = 0x20000000;
 	
 	private static final Map<Integer, byte[]> KEY_MAP;
 	private static final byte[] MOD_MAP;
@@ -252,6 +253,22 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F12:          pushKeyEvent(KEY_MASK_F12); break;
 
 		default:
+			// Keep control/navigation on keycode path, but use layout-resolved
+			// printable chars for locale-correct text input timing/repeat.
+			if( (modifierSet&KEY_MASK_CTRL)==0 ) {
+				Integer printableChar = mapPrintableChar(event.getKeyChar());
+				if( printableChar!=null ) {
+					int printablePressToken = toPrintablePressToken(keyIndex);
+					if( !isKeyPressed(printablePressToken) ) {
+						if( keyQueue.size()==0 )
+							keyCode = (byte) (0x80|printableChar.intValue());
+						keyPressed.add(printablePressToken);
+						keyCount++;
+						delayCount = PRE_REPEAT_FLOP_COUNT;
+					}
+					return;
+				}
+			}
 			byte[] keyCodeArray = KEY_MAP.get(keyIndex);
 			boolean capsLockDown = isCapsLockDown();
 			modIndex = MOD_MAP[modifierSet|(capsLockDown?KEY_MASK_CAPS:0)];
@@ -331,6 +348,14 @@ public class KeyboardIIe extends Keyboard {
 		case KeyEvent.VK_F12:          endPressedKeyEvent(KEY_MASK_F12); break;
 
 		default:
+			int printablePressToken = toPrintablePressToken(keyIndex);
+			if( isKeyPressed(printablePressToken) ) {
+				keyPressed.remove(printablePressToken);
+				keyCount--;
+				if( keyCount==0 )
+					delayCount = 0;
+				return;
+			}
 			byte[] keyCodeArray = KEY_MAP.get(keyIndex);
 			if( keyCodeArray==null )
 				return;
@@ -345,6 +370,20 @@ public class KeyboardIIe extends Keyboard {
 		
 		}
 
+	}
+
+	private static int toPrintablePressToken(int keyIndex) {
+		return PRINTABLE_PRESS_TOKEN_FLAG | (keyIndex&0x0000ffff);
+	}
+
+	private static Integer mapPrintableChar(char keyChar) {
+		if( keyChar==KeyEvent.CHAR_UNDEFINED )
+			return null;
+		if( keyChar==0x0a )
+			return 0x0d;
+		if( keyChar>=0x20 && keyChar<=0x7e )
+			return (int) keyChar;
+		return null;
 	}
 
 	private boolean isConsumed;
