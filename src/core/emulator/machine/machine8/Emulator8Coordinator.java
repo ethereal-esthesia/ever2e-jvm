@@ -40,10 +40,8 @@ public class Emulator8Coordinator {
 
 	private static final String DEFAULT_MACHINE = "ROMS/Apple2e.emu";
 	private static final int GRANULARITY_BITS_PER_MS = 32;
-	private static final int DEFAULT_SPEAKER_WARMUP_MS = 500;
-	private static final int DEFAULT_SPEAKER_STARTUP_MUTE_MS = 0;
-	private static final boolean ENABLE_STARTUP_JIT_PREFLIGHT = true;
-	private static final int STARTUP_JIT_PREFLIGHT_STEPS = 300000;
+	private static final boolean ENABLE_STARTUP_JIT_PRIME = true;
+	private static final int STARTUP_JIT_PRIME_STEPS = 300000;
 
 	private static int parseByteArg(String value, String argName) {
 		String raw = value.trim();
@@ -135,16 +133,13 @@ public class Emulator8Coordinator {
 		String traceFile = null;
 		String tracePhase = "pre";
 		Integer traceStartPc = null;
-		boolean textConsole = false;
-		boolean printTextAtExit = false;
-		boolean noSound = false;
-		boolean noLogging = false;
-		int speakerWarmupMs = DEFAULT_SPEAKER_WARMUP_MS;
-		int speakerStartupMuteMs = DEFAULT_SPEAKER_STARTUP_MUTE_MS;
-		boolean skipStartupJitPreflight = false;
-		Integer resetPFlagValue = null;
-		Integer haltExecution = null;
-		String pasteFile = null;
+			boolean textConsole = false;
+			boolean printTextAtExit = false;
+			boolean noSound = false;
+			boolean debugLogging = false;
+			Integer resetPFlagValue = null;
+			Integer haltExecution = null;
+			String pasteFile = null;
 		String pasteText = null;
 		for( int i = 0; i<argList.length; i++ ) {
 			String arg = argList[i];
@@ -185,26 +180,10 @@ public class Emulator8Coordinator {
 				noSound = true;
 			}
 			else if( "--no-logging".equals(arg) ) {
-				noLogging = true;
+				debugLogging = false;
 			}
-			else if( "--speaker-warmup-ms".equals(arg) ) {
-				if( i+1>=argList.length )
-					throw new IllegalArgumentException("Missing value for --speaker-warmup-ms");
-				speakerWarmupMs = Math.max(0, Integer.parseInt(argList[++i]));
-			}
-			else if( arg.startsWith("--speaker-warmup-ms=") ) {
-				speakerWarmupMs = Math.max(0, Integer.parseInt(arg.substring("--speaker-warmup-ms=".length())));
-			}
-			else if( "--speaker-startup-mute-ms".equals(arg) ) {
-				if( i+1>=argList.length )
-					throw new IllegalArgumentException("Missing value for --speaker-startup-mute-ms");
-				speakerStartupMuteMs = Math.max(0, Integer.parseInt(argList[++i]));
-			}
-			else if( arg.startsWith("--speaker-startup-mute-ms=") ) {
-				speakerStartupMuteMs = Math.max(0, Integer.parseInt(arg.substring("--speaker-startup-mute-ms=".length())));
-			}
-			else if( "--skip-startup-jit-preflight".equals(arg) ) {
-				skipStartupJitPreflight = true;
+			else if( "--debug".equals(arg) ) {
+				debugLogging = true;
 			}
 			else if( "--trace-start-pc".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -244,8 +223,8 @@ public class Emulator8Coordinator {
 				propertiesFile = arg;
 			}
 		}
-		if( noLogging )
-			System.setOut(new PrintStream(OutputStream.nullOutputStream()));
+			if( !debugLogging )
+				System.setOut(new PrintStream(OutputStream.nullOutputStream()));
 		tracePhase = tracePhase.trim().toLowerCase();
 		if( !"pre".equals(tracePhase) && !"post".equals(tracePhase) )
 			throw new IllegalArgumentException("Unsupported --trace-phase value: "+tracePhase+" (expected pre or post)");
@@ -271,8 +250,6 @@ public class Emulator8Coordinator {
 		Cpu65c02 cpu;
 			KeyboardIIe keyboard = null;
 			HeadlessVideoProbe headlessProbe = null;
-			Speaker1Bit speaker = null;
-
 		if( properties.getLayout()==MachineLayoutType.DEMO_32x32 ) {
 			bus = new MemoryBusDemo8(memory, keyboard);
 			bus.coldReset();
@@ -336,8 +313,7 @@ public class Emulator8Coordinator {
 				}
 				else {
 					try {
-						speaker = new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS);
-						hardwareManagerQueue.add(speaker);
+						hardwareManagerQueue.add(new Speaker1Bit((MemoryBusIIe) bus, (long) unitsPerCycle, GRANULARITY_BITS_PER_MS));
 					} catch (Exception e) {
 						System.out.println("Warning: Speaker initialization unavailable: " + e.getClass().getSimpleName());
 					}
@@ -377,16 +353,12 @@ public class Emulator8Coordinator {
 				} finally {
 					System.out.println("Slot "+slot+": "+(card==null?"empty":card));
 				}
-			}
+		}
 		
 		Emulator emulator = new Emulate65c02(hardwareManagerQueue, GRANULARITY_BITS_PER_MS);
-		boolean didStartupJitPreflight = false;
-		if( ENABLE_STARTUP_JIT_PREFLIGHT && !noSound && !skipStartupJitPreflight ) {
+		if( ENABLE_STARTUP_JIT_PRIME && !noSound ) {
 			try {
-				runSilently(() -> {
-					emulator.startWithStepPhases(STARTUP_JIT_PREFLIGHT_STEPS, cpu, (step, manager, preCycle) -> true);
-				});
-				didStartupJitPreflight = true;
+				runSilently(() -> emulator.startWithStepPhases(STARTUP_JIT_PRIME_STEPS, cpu, (step, manager, preCycle) -> true));
 			}
 			catch( Exception e ) {
 				if( e instanceof HardwareException )
@@ -395,7 +367,7 @@ public class Emulator8Coordinator {
 					throw (InterruptedException) e;
 				if( e instanceof IOException )
 					throw (IOException) e;
-				throw new RuntimeException("Startup JIT preflight failed", e);
+				throw new RuntimeException("Startup JIT prime failed", e);
 			}
 		}
 
@@ -410,35 +382,6 @@ public class Emulator8Coordinator {
 					throw new IllegalArgumentException("--paste-file requires a machine layout with KeyboardIIe");
 				pasteText = new String(Files.readAllBytes(Paths.get(pasteFile)), StandardCharsets.UTF_8);
 			}
-			if( speakerWarmupMs>0 && !didStartupJitPreflight ) {
-				if( speaker==null ) {
-					System.out.println("Speaker warmup skipped: sound is disabled or unavailable");
-				}
-				else {
-					long warmupStartNs = System.nanoTime();
-					int warmupIterations = (int) Math.max(1L, Math.round((cpuClock*(double)speakerWarmupMs/1000d)/Speaker1Bit.getSkipCycles()));
-					System.out.println("Speaker warmup: "+speakerWarmupMs+" ms ("+warmupIterations+" iterations)");
-					speaker.warmupIterations(warmupIterations);
-					long warmupElapsedNs = System.nanoTime() - warmupStartNs;
-					long warmupTargetNs = speakerWarmupMs * 1_000_000L;
-					if( warmupElapsedNs < warmupTargetNs ) {
-						long remainingNs = warmupTargetNs - warmupElapsedNs;
-						long sleepMs = remainingNs / 1_000_000L;
-						int sleepNs = (int) (remainingNs % 1_000_000L);
-						try {
-							Thread.sleep(sleepMs, sleepNs);
-						}
-						catch( InterruptedException ie ) {
-							Thread.currentThread().interrupt();
-						}
-					}
-				}
-			}
-			if( speaker!=null && speakerStartupMuteMs>0 ) {
-				speaker.setStartupMuteMs(speakerStartupMuteMs);
-				System.out.println("Speaker startup mute: "+speakerStartupMuteMs+" ms");
-			}
-
 		DecimalFormat format = new DecimalFormat("0.######E0");
 		HardwareManager[] managerList = new HardwareManager[hardwareManagerQueue.size()];
 		for( HardwareManager manager : hardwareManagerQueue.toArray(managerList) )
