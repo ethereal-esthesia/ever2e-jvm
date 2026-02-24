@@ -10,8 +10,15 @@ out/
 build/
 dist/
 
-# Binary firmware/images (do not track)
-ROMS/
+# Binary firmware/images
+# Keep copyrighted/proprietary ROM images ignored, but allow non-copyright
+# emulator configs and generated smoke harness artifacts.
+ROMS/*
+!ROMS/*.emu
+!ROMS/HELLO_WORLD.ROM
+!ROMS/opcode_smoke_loader_*.mon
+!ROMS/opcode_smoke_hgr_mem_*.bin
+!ROMS/opcode_smoke_hgr_mem_*.meta.json
 DISKS/*.NIB
 
 # Logs

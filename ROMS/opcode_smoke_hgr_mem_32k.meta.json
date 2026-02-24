@@ -1,0 +1,29 @@
+{
+  "base": 8192,
+  "slot_bytes": 32768,
+  "max_bytes": 32768,
+  "passes": 1,
+  "total_bytes": 32768,
+  "entries": [
+    "0x2000"
+  ],
+  "entry_pass": 1,
+  "entry_addr": "0x2000",
+  "excluded_count": 0,
+  "excluded_sample": [],
+  "passes_meta": [
+    {
+      "pass_num": 1,
+      "base": 8192,
+      "bytes": 19016,
+      "tests": 249,
+      "opcodes": [
+        "01",
+        "FF"
+      ],
+      "pass_loop": 27205,
+      "fail_loop": 27187,
+      "brk_vector_target": 27160
+    }
+  ]
+}
