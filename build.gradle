@@ -91,10 +91,13 @@ tasks.register('smoke', JavaExec) {
     def emuFile = providers.gradleProperty('smokeEmuFile').orElse('ROMS/Apple2e.emu').get()
     def pasteFile = providers.gradleProperty('smokePasteFile').orElse(file('ROMS/opcode_smoke_loader_hgr_mem_16k.mon').absolutePath).get()
     def steps = providers.gradleProperty('smokeSteps').orElse('80000000').get()
-    def haltExecution = providers.gradleProperty('smokeHaltExecution').orElse('0x33D2,0x33C0').get()
+    def haltExecution = providers.gradleProperty('smokeHaltExecution').orElse('0x33D2,0x33C0,0xC3FA').get()
     def requireHaltPc = providers.gradleProperty('smokeRequireHaltPc').orElse('0x33D2').get()
+    def traceFile = providers.gradleProperty('smokeTraceFile').orNull
+    def traceStartPc = providers.gradleProperty('smokeTraceStartPc').orNull
 
-    args emuFile,
+    def smokeArgs = [
+            emuFile,
             '--steps', steps,
             '--paste-file', pasteFile,
             '--halt-execution', haltExecution,
@@ -103,6 +106,14 @@ tasks.register('smoke', JavaExec) {
             '--print-text-at-exit',
             '--debug',
             '--no-sound'
+    ]
+    if (traceFile != null) {
+        smokeArgs += ['--trace-file', traceFile]
+    }
+    if (traceStartPc != null) {
+        smokeArgs += ['--trace-start-pc', traceStartPc]
+    }
+    args smokeArgs
 }
 
 tasks.register('runSdl', JavaExec) {
