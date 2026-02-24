@@ -80,7 +80,7 @@ tasks.register('runHeadless', JavaExec) {
     jvmArgs '-Djava.awt.headless=true'
 }
 
-tasks.register('runSmoke', JavaExec) {
+tasks.register('smoke', JavaExec) {
     group = 'verification'
     description = 'Run headless opcode smoke test with default loader and halt points.'
     classpath = sourceSets.main.runtimeClasspath

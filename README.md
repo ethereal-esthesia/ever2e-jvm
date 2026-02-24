@@ -166,10 +166,10 @@ Queue the committed paste-loader smoke test and execute:
 One-command smoke task:
 
 ```bash
-./gradlew runSmoke
+./gradlew smoke
 ```
 
-Defaults used by `runSmoke`:
+Defaults used by `smoke`:
 - `smokeEmuFile=ROMS/Apple2e.emu`
 - `smokePasteFile=/Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon`
 - `smokeSteps=80000000`
@@ -179,7 +179,7 @@ Defaults used by `runSmoke`:
 Override example:
 
 ```bash
-./gradlew runSmoke -PsmokeSteps=120000000 -PsmokeHaltExecution=0x1234,0x5678
+./gradlew smoke -PsmokeSteps=120000000 -PsmokeHaltExecution=0x1234,0x5678
 ```
 
 ## Known gaps
