@@ -1340,7 +1340,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 2);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
-		glfwWindow = GLFW.glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Ever2E", 0L, 0L);
+		glfwWindow = GLFW.glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Ever2e", 0L, 0L);
 		if( glfwWindow==0L ) {
 			GLFW.glfwTerminate();
 			throw new HardwareException("Unable to create GLFW window");
@@ -1478,7 +1478,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		}
 		if( sdlTextAnchorDebug )
 			System.err.println("[debug] sdl_init step=create_window");
-		sdlWindow = SDLVideo.SDL_CreateWindow("Ever2E", WINDOW_WIDTH, WINDOW_HEIGHT, SDLVideo.SDL_WINDOW_RESIZABLE);
+		sdlWindow = SDLVideo.SDL_CreateWindow("Ever2e", WINDOW_WIDTH, WINDOW_HEIGHT, SDLVideo.SDL_WINDOW_RESIZABLE);
 		if( sdlWindow==0L ) {
 			SDLInit.SDL_Quit();
 			throw new HardwareException("Unable to create SDL window: " + SDLError.SDL_GetError());
