@@ -17,20 +17,23 @@ repositories {
     mavenCentral()
 }
 
-def lwjglVersion = '3.3.6'
+def lwjglVersion = '3.4.1'
 
 dependencies {
     implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
     implementation 'org.lwjgl:lwjgl'
     implementation 'org.lwjgl:lwjgl-glfw'
     implementation 'org.lwjgl:lwjgl-opengl'
+    implementation 'org.lwjgl:lwjgl-sdl'
 
     runtimeOnly 'org.lwjgl:lwjgl::natives-macos'
     runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-macos'
     runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-macos'
+    runtimeOnly 'org.lwjgl:lwjgl-sdl::natives-macos'
     runtimeOnly 'org.lwjgl:lwjgl::natives-macos-arm64'
     runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-macos-arm64'
     runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-macos-arm64'
+    runtimeOnly 'org.lwjgl:lwjgl-sdl::natives-macos-arm64'
 
     testImplementation 'junit:junit:4.13.2'
 }
@@ -72,4 +75,27 @@ tasks.register('runHeadless', JavaExec) {
     mainClass = application.mainClass
     workingDir = projectDir
     jvmArgs '-Djava.awt.headless=true'
+}
+
+tasks.register('runSdl', JavaExec) {
+    group = 'application'
+    description = 'Run Emulator8Coordinator with SDL window backend.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = application.mainClass
+    workingDir = projectDir
+    if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+        jvmArgs '-XstartOnFirstThread'
+    }
+    args '--window-backend=sdl'
+}
+
+tasks.register('runSdlImeProbe', JavaExec) {
+    group = 'application'
+    description = 'Run minimal SDL3 IME/text input probe window.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'tools.SdlImeProbe'
+    workingDir = projectDir
+    if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+        jvmArgs '-XstartOnFirstThread'
+    }
 }

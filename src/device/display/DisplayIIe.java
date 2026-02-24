@@ -1,14 +1,8 @@
 package device.display;
 
-import java.awt.Canvas;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Event;
-import java.awt.Frame;
-import java.awt.Graphics;
 import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.Random;
 
@@ -17,6 +11,21 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.sdl.SDLEvents;
+import org.lwjgl.sdl.SDLError;
+import org.lwjgl.sdl.SDLInit;
+import org.lwjgl.sdl.SDLKeyboard;
+import org.lwjgl.sdl.SDLKeycode;
+import org.lwjgl.sdl.SDLScancode;
+import org.lwjgl.sdl.SDLHints;
+import org.lwjgl.sdl.SDLPixels;
+import org.lwjgl.sdl.SDLRender;
+import org.lwjgl.sdl.SDLVideo;
+import org.lwjgl.sdl.SDL_Event;
+import org.lwjgl.sdl.SDL_FRect;
+import org.lwjgl.sdl.SDL_Rect;
+import org.lwjgl.sdl.SDL_DisplayMode;
+import org.lwjgl.system.MemoryUtil;
 
 import core.exception.HardwareException;
 import core.memory.memory8.Memory8;
@@ -27,20 +36,21 @@ import device.keyboard.KeyboardIIe;
 
 public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private static volatile boolean keyLoggingEnabled;
+	private static volatile String windowBackend = "lwjgl";
+	private static volatile boolean startFullscreenOnLaunch;
+	private static volatile String sdlTextInputMode = "off";
+	private static volatile String sdlFullscreenMode = "exclusive";
+	private static volatile boolean sdlImeUiSelfImplemented;
+	private static volatile boolean sdlTextAnchorDebug;
 
 	private ScanlineTracer8 tracer;
 
-	private Frame frame;
-	private Canvas32x32 canvas;
 	private Memory8 memory;
 	private MemoryBusIIe memoryBus;
 
 	private int textMod;
 	private DisplayType displayType;
 	private BufferedImage [] rawDisplay;
-
-	private int xOff = (640-XSIZE)>>1;
-	private int yOff = (480-YSIZE)>>1;
 
 	private int bufferPage;
 	private int paintPage;
@@ -62,6 +72,12 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private int hueShift = -32;
 	private KeyboardIIe keyboard;
 	private long glfwWindow;
+	private long sdlWindow;
+	private long sdlGlContext;
+	private long sdlRenderer;
+	private long sdlTexture;
+	private java.nio.ByteBuffer sdlTextureBytes;
+	private java.nio.IntBuffer sdlTextureInts;
 	private int textureId;
 	private java.nio.IntBuffer uploadPixels;
 	private boolean linearFilteringActive;
@@ -72,6 +88,10 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private int windowedWidth = WINDOW_WIDTH;
 	private int windowedHeight = WINDOW_HEIGHT;
 	private long fullscreenTransitionGuardUntilNs;
+	private boolean pendingStartFullscreen;
+	private boolean pendingSdlTextInputModeApply;
+	private boolean pendingSdlInputGrabApply;
+	private boolean initializationComplete;
 
 	private static final int PAL_INDEX_COLOR = 0;
 	private static final int PAL_INDEX_MONO = 48;
@@ -91,6 +111,58 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	private static final int WINDOW_WIDTH = CONTENT_WIDTH + (BORDER_X * 2);
 	private static final int WINDOW_HEIGHT = CONTENT_HEIGHT + (BORDER_Y * 2);
 	private static final long FULLSCREEN_TRANSITION_GUARD_NS = 1_500_000_000L;
+	private static final int SDL_TEXT_ANCHOR_BELOW_OFFSET = 400;
+
+	public static void setWindowBackend(String backend) {
+		if( backend==null ) {
+			windowBackend = "lwjgl";
+			return;
+		}
+		String normalized = backend.trim().toLowerCase();
+		if( normalized.isEmpty() )
+			normalized = "lwjgl";
+		if( !"lwjgl".equals(normalized) && !"sdl".equals(normalized) )
+			throw new IllegalArgumentException("Unsupported window backend: "+backend+" (expected lwjgl or sdl)");
+		windowBackend = normalized;
+	}
+
+	public static void setStartFullscreenOnLaunch(boolean enabled) {
+		startFullscreenOnLaunch = enabled;
+	}
+
+	public static void setSdlTextInputMode(String mode) {
+		if( mode==null ) {
+			sdlTextInputMode = "off";
+			return;
+		}
+		String normalized = mode.trim().toLowerCase();
+		if( normalized.isEmpty() )
+			normalized = "off";
+		if( !"off".equals(normalized) && !"offscreen".equals(normalized) && !"normal".equals(normalized) && !"center".equals(normalized) )
+			throw new IllegalArgumentException("Unsupported text input mode: "+mode+" (expected off, offscreen, normal, or center)");
+		sdlTextInputMode = normalized;
+	}
+
+	public static void setSdlFullscreenMode(String mode) {
+		if( mode==null ) {
+			sdlFullscreenMode = "exclusive";
+			return;
+		}
+		String normalized = mode.trim().toLowerCase();
+		if( normalized.isEmpty() )
+			normalized = "exclusive";
+		if( !"exclusive".equals(normalized) && !"desktop".equals(normalized) )
+			throw new IllegalArgumentException("Unsupported SDL fullscreen mode: "+mode+" (expected exclusive or desktop)");
+		sdlFullscreenMode = normalized;
+	}
+
+	public static void setSdlImeUiSelfImplemented(boolean enabled) {
+		sdlImeUiSelfImplemented = enabled;
+	}
+
+	public static void setSdlTextAnchorDebug(boolean enabled) {
+		sdlTextAnchorDebug = enabled;
+	}
 
 	public static final TraceMap8 LO40_TRACE;
 	public static final TraceMap8 HI40_TRACE;
@@ -1238,14 +1310,26 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		tracer = new ScanlineTracer8();
 		tracer.setScanStart(25, 70);
 		tracer.setScanSize(65, 262);
-		canvas = null;
-		frame = null;
-		initializeLwjglWindow();
+		initializeWindow();
+		if( startFullscreenOnLaunch ) {
+			if( "sdl".equals(windowBackend) )
+				pendingStartFullscreen = true;
+			else
+				toggleFullscreen();
+		}
 		coldReset();
+		initializationComplete = true;
 	}
 
 	public static void setKeyLoggingEnabled(boolean enabled) {
 		keyLoggingEnabled = enabled;
+	}
+
+	private void initializeWindow() throws HardwareException {
+		if( "sdl".equals(windowBackend) )
+			initializeSdlWindow();
+		else
+			initializeLwjglWindow();
 	}
 
 	private void initializeLwjglWindow() throws HardwareException {
@@ -1334,6 +1418,10 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 	}
 
 	private void toggleFullscreen() {
+		if( "sdl".equals(windowBackend) ) {
+			toggleSdlFullscreen();
+			return;
+		}
 		if( glfwWindow==0L )
 			return;
 		fullscreenTransitionGuardUntilNs = System.nanoTime() + FULLSCREEN_TRANSITION_GUARD_NS;
@@ -1376,6 +1464,178 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 				height >= (int) Math.floor(mode.height() * 0.95);
 	}
 
+	private void initializeSdlWindow() throws HardwareException {
+		// Match MAME SDL behavior on macOS as closely as practical.
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_init step=hints_begin");
+		SDLHints.SDL_SetHint(SDLHints.SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+		SDLHints.SDL_SetHint(SDLHints.SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "0");
+		SDLHints.SDL_SetHint(SDLHints.SDL_HINT_IME_IMPLEMENTED_UI, sdlImeUiSelfImplemented ? "1" : "0");
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_init step=init_video_events");
+		if( !SDLInit.SDL_Init(SDLInit.SDL_INIT_VIDEO | SDLInit.SDL_INIT_EVENTS) ) {
+			throw new HardwareException("Unable to initialize SDL: " + SDLError.SDL_GetError());
+		}
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_init step=create_window");
+		sdlWindow = SDLVideo.SDL_CreateWindow("Ever2E", WINDOW_WIDTH, WINDOW_HEIGHT, SDLVideo.SDL_WINDOW_RESIZABLE);
+		if( sdlWindow==0L ) {
+			SDLInit.SDL_Quit();
+			throw new HardwareException("Unable to create SDL window: " + SDLError.SDL_GetError());
+		}
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_init step=create_renderer");
+		sdlRenderer = SDLRender.nSDL_CreateRenderer(sdlWindow, 0L);
+		if( sdlRenderer==0L ) {
+			SDLVideo.SDL_DestroyWindow(sdlWindow);
+			sdlWindow = 0L;
+			SDLInit.SDL_Quit();
+			throw new HardwareException("Unable to create SDL renderer: " + SDLError.SDL_GetError());
+		}
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_init step=create_texture");
+		sdlTexture = SDLRender.nSDL_CreateTexture(sdlRenderer, SDLPixels.SDL_PIXELFORMAT_ARGB8888,
+				SDLRender.SDL_TEXTUREACCESS_STREAMING, CONTENT_WIDTH, CONTENT_HEIGHT);
+		if( sdlTexture==0L ) {
+			SDLRender.SDL_DestroyRenderer(sdlRenderer);
+			sdlRenderer = 0L;
+			SDLVideo.SDL_DestroyWindow(sdlWindow);
+			sdlWindow = 0L;
+			SDLInit.SDL_Quit();
+			throw new HardwareException("Unable to create SDL texture: " + SDLError.SDL_GetError());
+		}
+		sdlTextureBytes = BufferUtils.createByteBuffer(CONTENT_WIDTH * CONTENT_HEIGHT * 4);
+		sdlTextureInts = sdlTextureBytes.asIntBuffer();
+		pendingSdlTextInputModeApply = true;
+		pendingSdlInputGrabApply = true;
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_init step=defer_input_grab");
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_init step=complete");
+	}
+
+	private void applySdlTextInputMode() {
+		if( sdlWindow==0L )
+			return;
+		if( "normal".equals(sdlTextInputMode) ) {
+			SDLKeyboard.SDL_StartTextInput(sdlWindow);
+			return;
+		}
+		if( "offscreen".equals(sdlTextInputMode) ) {
+			SDLKeyboard.SDL_StartTextInput(sdlWindow);
+			applySdlTextInputAreaForMode("mode_apply");
+			return;
+		}
+		if( "center".equals(sdlTextInputMode) ) {
+			SDLKeyboard.SDL_StartTextInput(sdlWindow);
+			applySdlTextInputAreaForMode("mode_apply");
+			return;
+		}
+		SDLKeyboard.SDL_StopTextInput(sdlWindow);
+	}
+
+	private void applySdlTextInputAreaForMode(String source) {
+		if( sdlWindow==0L )
+			return;
+		if( "offscreen".equals(sdlTextInputMode) ) {
+			java.nio.IntBuffer wBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer hBuf = BufferUtils.createIntBuffer(1);
+			SDLVideo.SDL_GetWindowSizeInPixels(sdlWindow, wBuf, hBuf);
+			int width = wBuf.get(0);
+			int height = hBuf.get(0);
+			int belowY = Math.max(0, hBuf.get(0) + SDL_TEXT_ANCHOR_BELOW_OFFSET);
+			try( SDL_Rect.Buffer area = SDL_Rect.calloc(1) ) {
+				area.x(0);
+				area.y(belowY);
+				area.w(1);
+				area.h(1);
+				SDLKeyboard.SDL_SetTextInputArea(sdlWindow, area, 0);
+			}
+			if( sdlTextAnchorDebug ) {
+				System.err.println("[debug] sdl_text_anchor source="+source+
+						" mode=offscreen"+
+						" windowPx="+width+"x"+height+
+						" anchor=0,"+belowY+
+						" imeSelfUi="+sdlImeUiSelfImplemented+
+						" fullscreen="+fullscreen);
+			}
+		}
+		else if( "center".equals(sdlTextInputMode) ) {
+			java.nio.IntBuffer wBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer hBuf = BufferUtils.createIntBuffer(1);
+			SDLVideo.SDL_GetWindowSizeInPixels(sdlWindow, wBuf, hBuf);
+			int width = wBuf.get(0);
+			int height = hBuf.get(0);
+			int cx = Math.max(0, width / 2);
+			int cy = Math.max(0, height / 2);
+			try( SDL_Rect.Buffer area = SDL_Rect.calloc(1) ) {
+				area.x(cx);
+				area.y(cy);
+				area.w(1);
+				area.h(1);
+				SDLKeyboard.SDL_SetTextInputArea(sdlWindow, area, 0);
+			}
+			if( sdlTextAnchorDebug ) {
+				System.err.println("[debug] sdl_text_anchor source="+source+
+						" mode=center"+
+						" windowPx="+width+"x"+height+
+						" anchor="+cx+","+cy+
+						" imeSelfUi="+sdlImeUiSelfImplemented+
+						" fullscreen="+fullscreen);
+			}
+		}
+	}
+
+	private void toggleSdlFullscreen() {
+		if( sdlWindow==0L )
+			return;
+		if( !fullscreen ) {
+			java.nio.IntBuffer xBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer yBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer wBuf = BufferUtils.createIntBuffer(1);
+			java.nio.IntBuffer hBuf = BufferUtils.createIntBuffer(1);
+			SDLVideo.SDL_GetWindowPosition(sdlWindow, xBuf, yBuf);
+			SDLVideo.SDL_GetWindowSize(sdlWindow, wBuf, hBuf);
+			windowedX = xBuf.get(0);
+			windowedY = yBuf.get(0);
+			windowedWidth = wBuf.get(0);
+			windowedHeight = hBuf.get(0);
+			recreateSdlWindow(true);
+		}
+		else {
+			recreateSdlWindow(false);
+		}
+	}
+
+	private void recreateSdlWindow(boolean targetFullscreen) {
+		try {
+			closeSdlWindow(false);
+			initializeSdlWindow();
+			if( targetFullscreen ) {
+				if( "desktop".equals(sdlFullscreenMode) ) {
+					SDLVideo.nSDL_SetWindowFullscreenMode(sdlWindow, 0L);
+				}
+				else {
+					int display = SDLVideo.SDL_GetDisplayForWindow(sdlWindow);
+					SDL_DisplayMode mode = display!=0 ? SDLVideo.SDL_GetCurrentDisplayMode(display) : null;
+					if( mode!=null )
+						SDLVideo.SDL_SetWindowFullscreenMode(sdlWindow, mode);
+				}
+				SDLVideo.SDL_SetWindowFullscreen(sdlWindow, true);
+				fullscreen = true;
+			}
+			else {
+				SDLVideo.SDL_SetWindowPosition(sdlWindow, windowedX, windowedY);
+				SDLVideo.SDL_SetWindowSize(sdlWindow, windowedWidth, windowedHeight);
+				fullscreen = false;
+			}
+			SDLVideo.SDL_RaiseWindow(sdlWindow);
+		}
+		catch( HardwareException e ) {
+			throw new RuntimeException("Failed to recreate SDL window during fullscreen toggle", e);
+		}
+	}
+
 	private void setTextureFiltering(boolean linear) {
 		if( textureId==0 )
 			return;
@@ -1402,6 +1662,29 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		if( (glfwMods&GLFW.GLFW_MOD_CAPS_LOCK)!=0 )
 			mods |= Event.CAPS_LOCK;
 		return mods;
+	}
+
+	private int toAwtModifiersFromSdl(short sdlMods) {
+		int mods = 0;
+		if( (sdlMods&SDLKeycode.SDL_KMOD_SHIFT)!=0 )
+			mods |= Event.SHIFT_MASK;
+		if( (sdlMods&SDLKeycode.SDL_KMOD_CTRL)!=0 )
+			mods |= Event.CTRL_MASK;
+		if( (sdlMods&SDLKeycode.SDL_KMOD_ALT)!=0 )
+			mods |= Event.ALT_MASK;
+		if( (sdlMods&SDLKeycode.SDL_KMOD_GUI)!=0 )
+			mods |= Event.META_MASK;
+		if( (sdlMods&SDLKeycode.SDL_KMOD_CAPS)!=0 )
+			mods |= Event.CAPS_LOCK;
+		return mods;
+	}
+
+	private char mapSdlKeyChar(int sdlKeycode) {
+		if( sdlKeycode >= 32 && sdlKeycode <= 126 ) {
+			char out = (char) sdlKeycode;
+			return Character.isLetter(out) ? Character.toLowerCase(out) : out;
+		}
+		return KeyEvent.CHAR_UNDEFINED;
 	}
 
 	private char mapKeyChar(int key, int scancode, int mods) {
@@ -1519,35 +1802,111 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		}
 	}
 
+	private int toAwtKeyCodeFromSdlScancode(int scancode) {
+		switch( scancode ) {
+			case SDLScancode.SDL_SCANCODE_A: return KeyEvent.VK_A;
+			case SDLScancode.SDL_SCANCODE_B: return KeyEvent.VK_B;
+			case SDLScancode.SDL_SCANCODE_C: return KeyEvent.VK_C;
+			case SDLScancode.SDL_SCANCODE_D: return KeyEvent.VK_D;
+			case SDLScancode.SDL_SCANCODE_E: return KeyEvent.VK_E;
+			case SDLScancode.SDL_SCANCODE_F: return KeyEvent.VK_F;
+			case SDLScancode.SDL_SCANCODE_G: return KeyEvent.VK_G;
+			case SDLScancode.SDL_SCANCODE_H: return KeyEvent.VK_H;
+			case SDLScancode.SDL_SCANCODE_I: return KeyEvent.VK_I;
+			case SDLScancode.SDL_SCANCODE_J: return KeyEvent.VK_J;
+			case SDLScancode.SDL_SCANCODE_K: return KeyEvent.VK_K;
+			case SDLScancode.SDL_SCANCODE_L: return KeyEvent.VK_L;
+			case SDLScancode.SDL_SCANCODE_M: return KeyEvent.VK_M;
+			case SDLScancode.SDL_SCANCODE_N: return KeyEvent.VK_N;
+			case SDLScancode.SDL_SCANCODE_O: return KeyEvent.VK_O;
+			case SDLScancode.SDL_SCANCODE_P: return KeyEvent.VK_P;
+			case SDLScancode.SDL_SCANCODE_Q: return KeyEvent.VK_Q;
+			case SDLScancode.SDL_SCANCODE_R: return KeyEvent.VK_R;
+			case SDLScancode.SDL_SCANCODE_S: return KeyEvent.VK_S;
+			case SDLScancode.SDL_SCANCODE_T: return KeyEvent.VK_T;
+			case SDLScancode.SDL_SCANCODE_U: return KeyEvent.VK_U;
+			case SDLScancode.SDL_SCANCODE_V: return KeyEvent.VK_V;
+			case SDLScancode.SDL_SCANCODE_W: return KeyEvent.VK_W;
+			case SDLScancode.SDL_SCANCODE_X: return KeyEvent.VK_X;
+			case SDLScancode.SDL_SCANCODE_Y: return KeyEvent.VK_Y;
+			case SDLScancode.SDL_SCANCODE_Z: return KeyEvent.VK_Z;
+			case SDLScancode.SDL_SCANCODE_0: return KeyEvent.VK_0;
+			case SDLScancode.SDL_SCANCODE_1: return KeyEvent.VK_1;
+			case SDLScancode.SDL_SCANCODE_2: return KeyEvent.VK_2;
+			case SDLScancode.SDL_SCANCODE_3: return KeyEvent.VK_3;
+			case SDLScancode.SDL_SCANCODE_4: return KeyEvent.VK_4;
+			case SDLScancode.SDL_SCANCODE_5: return KeyEvent.VK_5;
+			case SDLScancode.SDL_SCANCODE_6: return KeyEvent.VK_6;
+			case SDLScancode.SDL_SCANCODE_7: return KeyEvent.VK_7;
+			case SDLScancode.SDL_SCANCODE_8: return KeyEvent.VK_8;
+			case SDLScancode.SDL_SCANCODE_9: return KeyEvent.VK_9;
+			case SDLScancode.SDL_SCANCODE_MINUS: return KeyEvent.VK_MINUS;
+			case SDLScancode.SDL_SCANCODE_EQUALS: return KeyEvent.VK_EQUALS;
+			case SDLScancode.SDL_SCANCODE_LEFTBRACKET: return KeyEvent.VK_OPEN_BRACKET;
+			case SDLScancode.SDL_SCANCODE_RIGHTBRACKET: return KeyEvent.VK_CLOSE_BRACKET;
+			case SDLScancode.SDL_SCANCODE_BACKSLASH: return KeyEvent.VK_BACK_SLASH;
+			case SDLScancode.SDL_SCANCODE_SEMICOLON: return KeyEvent.VK_SEMICOLON;
+			case SDLScancode.SDL_SCANCODE_APOSTROPHE: return KeyEvent.VK_QUOTE;
+			case SDLScancode.SDL_SCANCODE_COMMA: return KeyEvent.VK_COMMA;
+			case SDLScancode.SDL_SCANCODE_PERIOD: return KeyEvent.VK_PERIOD;
+			case SDLScancode.SDL_SCANCODE_SLASH: return KeyEvent.VK_SLASH;
+			case SDLScancode.SDL_SCANCODE_GRAVE: return KeyEvent.VK_BACK_QUOTE;
+			case SDLScancode.SDL_SCANCODE_RETURN: return KeyEvent.VK_ENTER;
+			case SDLScancode.SDL_SCANCODE_BACKSPACE: return KeyEvent.VK_BACK_SPACE;
+			case SDLScancode.SDL_SCANCODE_TAB: return KeyEvent.VK_TAB;
+			case SDLScancode.SDL_SCANCODE_ESCAPE: return KeyEvent.VK_ESCAPE;
+			case SDLScancode.SDL_SCANCODE_SPACE: return KeyEvent.VK_SPACE;
+			case SDLScancode.SDL_SCANCODE_LEFT: return KeyEvent.VK_LEFT;
+			case SDLScancode.SDL_SCANCODE_RIGHT: return KeyEvent.VK_RIGHT;
+			case SDLScancode.SDL_SCANCODE_UP: return KeyEvent.VK_UP;
+			case SDLScancode.SDL_SCANCODE_DOWN: return KeyEvent.VK_DOWN;
+			case SDLScancode.SDL_SCANCODE_LSHIFT:
+			case SDLScancode.SDL_SCANCODE_RSHIFT: return KeyEvent.VK_SHIFT;
+			case SDLScancode.SDL_SCANCODE_LCTRL:
+			case SDLScancode.SDL_SCANCODE_RCTRL: return KeyEvent.VK_CONTROL;
+			case SDLScancode.SDL_SCANCODE_CAPSLOCK: return KeyEvent.VK_CAPS_LOCK;
+			case SDLScancode.SDL_SCANCODE_LALT:
+			case SDLScancode.SDL_SCANCODE_RALT: return KeyEvent.VK_ALT;
+			case SDLScancode.SDL_SCANCODE_LGUI:
+			case SDLScancode.SDL_SCANCODE_RGUI: return KeyEvent.VK_META;
+			case SDLScancode.SDL_SCANCODE_INSERT: return KeyEvent.VK_INSERT;
+			case SDLScancode.SDL_SCANCODE_F1: return KeyEvent.VK_F1;
+			case SDLScancode.SDL_SCANCODE_F2: return KeyEvent.VK_F2;
+			case SDLScancode.SDL_SCANCODE_F3: return KeyEvent.VK_F3;
+			case SDLScancode.SDL_SCANCODE_F4: return KeyEvent.VK_F4;
+			case SDLScancode.SDL_SCANCODE_F5: return KeyEvent.VK_F5;
+			case SDLScancode.SDL_SCANCODE_F6: return KeyEvent.VK_F6;
+			case SDLScancode.SDL_SCANCODE_F7: return KeyEvent.VK_F7;
+			case SDLScancode.SDL_SCANCODE_F8: return KeyEvent.VK_F8;
+			case SDLScancode.SDL_SCANCODE_F9: return KeyEvent.VK_F9;
+			case SDLScancode.SDL_SCANCODE_F10: return KeyEvent.VK_F10;
+			case SDLScancode.SDL_SCANCODE_F11: return KeyEvent.VK_F11;
+			case SDLScancode.SDL_SCANCODE_F12: return KeyEvent.VK_F12;
+			case SDLScancode.SDL_SCANCODE_KP_0: return KeyEvent.VK_NUMPAD0;
+			case SDLScancode.SDL_SCANCODE_KP_1: return KeyEvent.VK_NUMPAD1;
+			case SDLScancode.SDL_SCANCODE_KP_2: return KeyEvent.VK_NUMPAD2;
+			case SDLScancode.SDL_SCANCODE_KP_3: return KeyEvent.VK_NUMPAD3;
+			case SDLScancode.SDL_SCANCODE_KP_4: return KeyEvent.VK_NUMPAD4;
+			case SDLScancode.SDL_SCANCODE_KP_5: return KeyEvent.VK_NUMPAD5;
+			case SDLScancode.SDL_SCANCODE_KP_6: return KeyEvent.VK_NUMPAD6;
+			case SDLScancode.SDL_SCANCODE_KP_7: return KeyEvent.VK_NUMPAD7;
+			case SDLScancode.SDL_SCANCODE_KP_8: return KeyEvent.VK_NUMPAD8;
+			case SDLScancode.SDL_SCANCODE_KP_9: return KeyEvent.VK_NUMPAD9;
+			case SDLScancode.SDL_SCANCODE_KP_PERIOD: return KeyEvent.VK_DECIMAL;
+			case SDLScancode.SDL_SCANCODE_KP_DIVIDE: return KeyEvent.VK_DIVIDE;
+			case SDLScancode.SDL_SCANCODE_KP_MULTIPLY: return KeyEvent.VK_MULTIPLY;
+			case SDLScancode.SDL_SCANCODE_KP_MINUS: return KeyEvent.VK_SUBTRACT;
+			case SDLScancode.SDL_SCANCODE_KP_PLUS: return KeyEvent.VK_ADD;
+			case SDLScancode.SDL_SCANCODE_KP_ENTER: return KeyEvent.VK_ENTER;
+			case SDLScancode.SDL_SCANCODE_KP_EQUALS: return KeyEvent.VK_EQUALS;
+			default: return KeyEvent.VK_UNDEFINED;
+		}
+	}
+
 	public void setShowFps(boolean showFps) {
 		this.showFps = showFps;
 		this.fpsWindowStartNs = System.nanoTime();
 		this.fpsFrameCount = 0;
-	}
-
-	private class Canvas32x32 extends Canvas {
-
-		private static final long serialVersionUID = 3277512952021171260L;
-
-		public Canvas32x32() {
-			super();
-			setSize(XSIZE, YSIZE);
-			evaluateSwitchChange();
-		}
-
-		public void paint( Graphics g ) {
-			Dimension size = getSize();
-			xOff = (size.width-XSIZE)>>1;
-			yOff = (size.height-YSIZE)>>1;
-			g.drawImage(rawDisplay[paintPage], xOff, yOff, this);
-		}
-
-		@Override
-		public void update(Graphics g) {
-			// Avoid AWT background clear between frames, which causes visible flicker.
-			paint(g);
-		}
-
 	}
 
 	private void evaluateSwitchChange() {
@@ -1770,7 +2129,7 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 
 	private void flipPage() {
 		paintPage = bufferPage;
-		blitToLwjgl(rawDisplay[paintPage]);
+		blitToWindow(rawDisplay[paintPage]);
 		bufferPage = bufferPage==1 ? 0:1;
 		if( showFps ) {
 			fpsFrameCount++;
@@ -1785,9 +2144,106 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		}
 	}
 
+	private void blitToWindow(BufferedImage image) {
+		if( "sdl".equals(windowBackend) ) {
+			blitToSdl(image);
+			return;
+		}
+		blitToLwjgl(image);
+	}
+
 	private void blitToLwjgl(BufferedImage image) {
 		if( glfwWindow==0L )
 			return;
+		blitToActiveContext(image, true);
+		GLFW.glfwSwapBuffers(glfwWindow);
+		GLFW.glfwPollEvents();
+		if( GLFW.glfwWindowShouldClose(glfwWindow) ) {
+			closeWindow();
+			System.exit(0);
+		}
+	}
+
+	private void blitToSdl(BufferedImage image) {
+		if( sdlWindow==0L )
+			return;
+		if( pendingStartFullscreen && initializationComplete ) {
+			pendingStartFullscreen = false;
+			enterSdlFullscreenStartup();
+		}
+		if( pendingSdlTextInputModeApply && initializationComplete ) {
+			pendingSdlTextInputModeApply = false;
+			applySdlTextInputMode();
+		}
+		if( pendingSdlInputGrabApply && initializationComplete ) {
+			pendingSdlInputGrabApply = false;
+			SDLVideo.SDL_SetWindowKeyboardGrab(sdlWindow, true);
+			SDLVideo.SDL_SetWindowMouseGrab(sdlWindow, true);
+			org.lwjgl.sdl.SDLMouse.SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+			org.lwjgl.sdl.SDLMouse.SDL_HideCursor();
+			if( sdlTextAnchorDebug )
+				System.err.println("[debug] sdl_init step=apply_input_grab");
+		}
+		int[] pixels = image.getRGB(0, 0, CONTENT_WIDTH, CONTENT_HEIGHT, null, 0, CONTENT_WIDTH);
+		sdlTextureInts.clear();
+		sdlTextureInts.put(pixels);
+		sdlTextureInts.flip();
+		SDLRender.nSDL_UpdateTexture(sdlTexture, 0L, MemoryUtil.memAddress(sdlTextureBytes), CONTENT_WIDTH * 4);
+		java.nio.IntBuffer fbWidth = BufferUtils.createIntBuffer(1);
+		java.nio.IntBuffer fbHeight = BufferUtils.createIntBuffer(1);
+		SDLVideo.SDL_GetWindowSizeInPixels(sdlWindow, fbWidth, fbHeight);
+		int framebufferWidth = fbWidth.get(0);
+		int framebufferHeight = fbHeight.get(0);
+		double fitScale = Math.min(framebufferWidth / (double) WINDOW_WIDTH, framebufferHeight / (double) WINDOW_HEIGHT);
+		int contentWidth = Math.max(1, (int) Math.round(CONTENT_WIDTH * fitScale));
+		int contentHeight = Math.max(1, (int) Math.round(CONTENT_HEIGHT * fitScale));
+		int borderX = Math.max(0, (int) Math.round(BORDER_X * fitScale));
+		int borderY = Math.max(0, (int) Math.round(BORDER_Y * fitScale));
+		int frameWidth = Math.max(1, (int) Math.round(WINDOW_WIDTH * fitScale));
+		int frameHeight = Math.max(1, (int) Math.round(WINDOW_HEIGHT * fitScale));
+		int frameX = Math.max((framebufferWidth - frameWidth) / 2, 0);
+		int frameY = Math.max((framebufferHeight - frameHeight) / 2, 0);
+		int contentX = frameX + borderX;
+		int contentY = frameY + borderY;
+		SDLRender.SDL_SetRenderDrawColor(sdlRenderer, (byte) 0, (byte) 0, (byte) 0, (byte) 0xff);
+		SDLRender.SDL_RenderClear(sdlRenderer);
+		try( SDL_FRect dst = SDL_FRect.calloc() ) {
+			dst.x(contentX);
+			dst.y(contentY);
+			dst.w(contentWidth);
+			dst.h(contentHeight);
+			SDLRender.nSDL_RenderTexture(sdlRenderer, sdlTexture, 0L, dst.address());
+		}
+		SDLRender.SDL_RenderPresent(sdlRenderer);
+		if( fullscreen )
+			org.lwjgl.sdl.SDLMouse.SDL_HideCursor();
+		if( sdlImeUiSelfImplemented && ("offscreen".equals(sdlTextInputMode) || "center".equals(sdlTextInputMode)) )
+			applySdlTextInputAreaForMode("frame_tick");
+		pollSdlEvents();
+	}
+
+	private void enterSdlFullscreenStartup() {
+		if( sdlWindow==0L )
+			return;
+		if( fullscreen )
+			return;
+		if( "desktop".equals(sdlFullscreenMode) ) {
+			SDLVideo.nSDL_SetWindowFullscreenMode(sdlWindow, 0L);
+		}
+		else {
+			int display = SDLVideo.SDL_GetDisplayForWindow(sdlWindow);
+			SDL_DisplayMode mode = display!=0 ? SDLVideo.SDL_GetCurrentDisplayMode(display) : null;
+			if( mode!=null )
+				SDLVideo.SDL_SetWindowFullscreenMode(sdlWindow, mode);
+		}
+		SDLVideo.SDL_SetWindowFullscreen(sdlWindow, true);
+		fullscreen = true;
+		SDLVideo.SDL_RaiseWindow(sdlWindow);
+		if( sdlTextAnchorDebug )
+			System.err.println("[debug] sdl_text_anchor source=startup_fullscreen action=entered_fullscreen");
+	}
+
+	private void blitToActiveContext(BufferedImage image, boolean lwjglWindow) {
 		int[] pixels = image.getRGB(0, 0, CONTENT_WIDTH, CONTENT_HEIGHT, null, 0, CONTENT_WIDTH);
 		uploadPixels.clear();
 		uploadPixels.put(pixels);
@@ -1797,7 +2253,12 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 				GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, uploadPixels);
 		java.nio.IntBuffer fbWidth = BufferUtils.createIntBuffer(1);
 		java.nio.IntBuffer fbHeight = BufferUtils.createIntBuffer(1);
-		GLFW.glfwGetFramebufferSize(glfwWindow, fbWidth, fbHeight);
+		if( lwjglWindow ) {
+			GLFW.glfwGetFramebufferSize(glfwWindow, fbWidth, fbHeight);
+		}
+		else {
+			SDLVideo.SDL_GetWindowSizeInPixels(sdlWindow, fbWidth, fbHeight);
+		}
 		int framebufferWidth = fbWidth.get(0);
 		int framebufferHeight = fbHeight.get(0);
 		double fitScale = Math.min(framebufferWidth / (double) WINDOW_WIDTH, framebufferHeight / (double) WINDOW_HEIGHT);
@@ -1827,24 +2288,117 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		GL11.glTexCoord2f(1f, 0f); GL11.glVertex2f(1f, 1f);
 		GL11.glTexCoord2f(0f, 0f); GL11.glVertex2f(-1f, 1f);
 		GL11.glEnd();
-		GLFW.glfwSwapBuffers(glfwWindow);
-		GLFW.glfwPollEvents();
-		if( GLFW.glfwWindowShouldClose(glfwWindow) ) {
-			closeLwjglWindow();
-			System.exit(0);
+	}
+
+	private void closeWindow() {
+		if( textureId!=0 ) {
+			GL11.glDeleteTextures(textureId);
+			textureId = 0;
 		}
+		if( "sdl".equals(windowBackend) )
+			closeSdlWindow(true);
+		else
+			closeLwjglWindow();
 	}
 
 	private void closeLwjglWindow() {
 		if( glfwWindow==0L )
 			return;
-		if( textureId!=0 ) {
-			GL11.glDeleteTextures(textureId);
-			textureId = 0;
-		}
 		GLFW.glfwDestroyWindow(glfwWindow);
 		glfwWindow = 0L;
 		GLFW.glfwTerminate();
+	}
+
+	private void closeSdlWindow(boolean quitSdl) {
+		if( sdlGlContext!=0L ) {
+			SDLVideo.SDL_GL_DestroyContext(sdlGlContext);
+			sdlGlContext = 0L;
+		}
+		if( sdlTexture!=0L ) {
+			SDLRender.nSDL_DestroyTexture(sdlTexture);
+			sdlTexture = 0L;
+		}
+		if( sdlRenderer!=0L ) {
+			SDLRender.SDL_DestroyRenderer(sdlRenderer);
+			sdlRenderer = 0L;
+		}
+		if( sdlWindow!=0L ) {
+			SDLVideo.SDL_DestroyWindow(sdlWindow);
+			sdlWindow = 0L;
+		}
+		if( quitSdl )
+			SDLInit.SDL_Quit();
+	}
+
+	private void pollSdlEvents() {
+		try( SDL_Event event = SDL_Event.malloc() ) {
+			while( SDLEvents.SDL_PollEvent(event) ) {
+				int type = event.type();
+				if( type==SDLEvents.SDL_EVENT_QUIT || type==SDLEvents.SDL_EVENT_WINDOW_CLOSE_REQUESTED ) {
+					closeWindow();
+					System.exit(0);
+					return;
+				}
+				if( type==SDLEvents.SDL_EVENT_WINDOW_FOCUS_LOST ) {
+					SDLKeyboard.SDL_StopTextInput(sdlWindow);
+					if( sdlTextAnchorDebug )
+						System.err.println("[debug] sdl_text_anchor source=focus_lost action=stop_text_input");
+					continue;
+				}
+				if( type==SDLEvents.SDL_EVENT_WINDOW_FOCUS_GAINED ) {
+					applySdlTextInputMode();
+					if( fullscreen )
+						org.lwjgl.sdl.SDLMouse.SDL_HideCursor();
+					if( sdlTextAnchorDebug )
+						System.err.println("[debug] sdl_text_anchor source=focus_gained action=apply_mode");
+					continue;
+				}
+				if( type==SDLEvents.SDL_EVENT_KEY_DOWN || type==SDLEvents.SDL_EVENT_KEY_UP ) {
+					processSdlKeyboardEvent(event.key(), type==SDLEvents.SDL_EVENT_KEY_DOWN);
+				}
+			}
+		}
+	}
+
+	private void processSdlKeyboardEvent(org.lwjgl.sdl.SDL_KeyboardEvent keyEvent, boolean pressed) {
+		int scancode = keyEvent.scancode();
+		int key = keyEvent.key();
+		short mods = keyEvent.mod();
+		boolean repeat = keyEvent.repeat();
+		char keyChar = mapSdlKeyChar(key);
+		boolean shiftDown = (mods&SDLKeycode.SDL_KMOD_SHIFT)!=0;
+		boolean ctrlDown = (mods&SDLKeycode.SDL_KMOD_CTRL)!=0;
+		boolean altDown = (mods&SDLKeycode.SDL_KMOD_ALT)!=0;
+		boolean metaDown = (mods&SDLKeycode.SDL_KMOD_GUI)!=0;
+		boolean fullscreenToggle = pressed && !repeat &&
+				(((mods&SDLKeycode.SDL_KMOD_GUI)!=0 && (mods&SDLKeycode.SDL_KMOD_CTRL)!=0 && Character.toLowerCase(keyChar)=='f') ||
+				 ((mods&SDLKeycode.SDL_KMOD_GUI)!=0 && (scancode==SDLScancode.SDL_SCANCODE_RETURN || scancode==SDLScancode.SDL_SCANCODE_KP_ENTER)));
+		if( fullscreenToggle ) {
+			toggleFullscreen();
+			return;
+		}
+		int awtKeyCode = toAwtKeyCodeFromSdlScancode(scancode);
+		if( awtKeyCode==KeyEvent.VK_UNDEFINED )
+			return;
+		int awtModifiers = toAwtModifiersFromSdl(mods);
+		if( keyLoggingEnabled ) {
+			System.err.println("[sdl-key] action="+(pressed ? 1 : 0)+
+					" scancode="+scancode+
+					" key="+key+
+					" awt="+awtKeyCode+
+					" char="+(keyChar==KeyEvent.CHAR_UNDEFINED ? "undef":Integer.toString((int) keyChar))+
+					" shift="+shiftDown+
+					" ctrl="+ctrlDown+
+					" alt="+altDown+
+					" meta="+metaDown+
+					" mods=0x"+Integer.toHexString(mods & 0xffff));
+		}
+		if( pressed ) {
+			keyboard.keyPressedRaw(awtKeyCode, awtModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
+		}
+		else {
+			keyboard.keyReleasedRaw(awtKeyCode, awtModifiers, keyChar, shiftDown, ctrlDown, altDown, metaDown);
+		}
 	}
 
 	private void cleanEdges() {

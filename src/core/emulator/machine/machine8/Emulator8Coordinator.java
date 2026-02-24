@@ -147,6 +147,11 @@ public class Emulator8Coordinator {
 			boolean noSound = false;
 			boolean debugLogging = false;
 			boolean keyLogging = false;
+			String windowBackend = "lwjgl";
+			boolean startFullscreen = false;
+			String textInputMode = "off";
+			String sdlFullscreenMode = "exclusive";
+			boolean sdlImeUiSelf = false;
 			Integer resetPFlagValue = null;
 			Integer haltExecution = null;
 			String pasteFile = null;
@@ -201,6 +206,36 @@ public class Emulator8Coordinator {
 			else if( "--keylog".equals(arg) ) {
 				keyLogging = true;
 			}
+			else if( "--window-backend".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --window-backend");
+				windowBackend = argList[++i];
+			}
+			else if( arg.startsWith("--window-backend=") ) {
+				windowBackend = arg.substring("--window-backend=".length());
+			}
+			else if( "--start-fullscreen".equals(arg) ) {
+				startFullscreen = true;
+			}
+			else if( "--text-input-mode".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --text-input-mode");
+				textInputMode = argList[++i];
+			}
+			else if( arg.startsWith("--text-input-mode=") ) {
+				textInputMode = arg.substring("--text-input-mode=".length());
+			}
+			else if( "--sdl-fullscreen-mode".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --sdl-fullscreen-mode");
+				sdlFullscreenMode = argList[++i];
+			}
+			else if( arg.startsWith("--sdl-fullscreen-mode=") ) {
+				sdlFullscreenMode = arg.substring("--sdl-fullscreen-mode=".length());
+			}
+			else if( "--sdl-ime-ui-self".equals(arg) ) {
+				sdlImeUiSelf = true;
+			}
 			else if( "--trace-start-pc".equals(arg) ) {
 				if( i+1>=argList.length )
 					throw new IllegalArgumentException("Missing value for --trace-start-pc");
@@ -243,6 +278,19 @@ public class Emulator8Coordinator {
 		Speaker1Bit.setBlockingDebugEnabled(debugLogging);
 		KeyboardIIe.setKeyLoggingEnabled(keyLogging);
 		DisplayIIe.setKeyLoggingEnabled(keyLogging);
+		DisplayIIe.setWindowBackend(windowBackend);
+		DisplayIIe.setStartFullscreenOnLaunch(startFullscreen);
+		DisplayIIe.setSdlTextInputMode(textInputMode);
+		DisplayIIe.setSdlFullscreenMode(sdlFullscreenMode);
+		DisplayIIe.setSdlImeUiSelfImplemented(sdlImeUiSelf);
+		DisplayIIe.setSdlTextAnchorDebug(debugLogging);
+		if( debugLogging ) {
+			System.err.println("[debug] launch_config windowBackend="+windowBackend+
+					" startFullscreen="+startFullscreen+
+					" sdlImeUiSelf="+sdlImeUiSelf+
+					" textInputMode="+textInputMode+
+					" sdlFullscreenMode="+sdlFullscreenMode);
+		}
 			if( !debugLogging )
 				System.setOut(new PrintStream(OutputStream.nullOutputStream()));
 		tracePhase = tracePhase.trim().toLowerCase();
@@ -318,7 +366,7 @@ public class Emulator8Coordinator {
 				display = headlessProbe;
 				hardwareManagerQueue.add(new DisplayConsoleAppleIIe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier)));
 			}
-			else if( GraphicsEnvironment.isHeadless() ) {
+			else if( isHeadlessMode(windowBackend) ) {
 				System.out.println("Running headless: using headless video probe");
 				headlessProbe = new HeadlessVideoProbe((MemoryBusIIe) bus, (long) (unitsPerCycle/displayMultiplier));
 				display = headlessProbe;
@@ -599,6 +647,12 @@ public class Emulator8Coordinator {
 				printTextScreen((MemoryBusIIe) bus, memory);
 	   	}
 
+	}
+
+	private static boolean isHeadlessMode(String windowBackend) {
+		if( "sdl".equalsIgnoreCase(windowBackend) )
+			return Boolean.parseBoolean(System.getProperty("java.awt.headless", "false"));
+		return GraphicsEnvironment.isHeadless();
 	}
 
 	private static void printTextScreen(MemoryBusIIe memoryBus, Memory8 memory) {
