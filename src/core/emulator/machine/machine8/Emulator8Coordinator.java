@@ -496,8 +496,6 @@ public class Emulator8Coordinator {
 	   	if( resetPFlagValue!=null )
 	   		cpu.setResetPOverride(resetPFlagValue);
 	   	if( maxCpuSteps>=0 ) {
-	   		if( traceFile!=null && traceStartPc==null )
-	   			traceStartPc = properties.getProgramStart();
 	   		PrintWriter traceWriter = null;
 	   		if( traceFile!=null ) {
 	   			traceWriter = new PrintWriter(new FileWriter(traceFile));
