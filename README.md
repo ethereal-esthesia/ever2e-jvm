@@ -157,10 +157,10 @@ Queue a BASIC program file for typed input:
 ./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 200000 --paste-file samples/VBL_TEST.BAS"
 ```
 
-Queue the combined 4-slice opcode monitor loader (generated from `python_port`) and execute:
+Queue the committed paste-loader smoke test and execute:
 
 ```bash
-./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 30000000 --paste-file /Users/shane/Project/ever2e/python_port/tools/opcode_smoke_loader_4x.mon --print-text-at-exit"
+./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_4x.mon --print-text-at-exit --debug"
 ```
 
 ## Known gaps
@@ -186,5 +186,4 @@ sudo defaults delete /Library/Preferences/FeatureFlags/Domain/UIKit.plist redesi
 ```
 
 Then reboot macOS again.
-
 
