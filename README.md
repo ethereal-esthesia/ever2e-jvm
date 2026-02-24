@@ -70,8 +70,8 @@ Windowed run (SDL test backend):
   - Do not emit trace rows until this PC is reached (inclusive), then continue tracing normally.
 - `--reset-pflag-value <value>`
   - Override reset-time `P` policy (hex `0x..` or decimal). Bits `0x20` and `0x10` stay asserted.
-- `--halt-execution <addr>`
-  - Stop execution when PC reaches the address (hex `0x....` or decimal).
+- `--halt-execution <addr[,addr...]>`
+  - Stop execution when PC reaches any provided address (hex `0x....` or decimal). May be repeated.
 - `--paste-file <path>`
   - Queue BASIC source text into the keyboard input queue at startup (same CR conversion as paste).
 - `--no-sound`
@@ -148,7 +148,7 @@ Generate a trace that starts only at a target PC:
 Run with reset `P` policy and halt point:
 
 ```bash
-./gradlew runHeadless --args="ROMS/Apple2eMemCheck.emu --steps 200000 --trace-phase pre --reset-pflag-value 0x36 --halt-execution 0xC70B --trace-file /tmp/jvm_halt_trace.csv"
+./gradlew runHeadless --args="ROMS/Apple2eMemCheck.emu --steps 200000 --trace-phase pre --reset-pflag-value 0x36 --halt-execution 0xC70B,0xC70C --trace-file /tmp/jvm_halt_trace.csv"
 ```
 
 Queue a BASIC program file for typed input:
@@ -161,6 +161,24 @@ Queue the committed paste-loader smoke test and execute:
 
 ```bash
 ./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon --print-text-at-exit --debug"
+```
+
+One-command smoke runner:
+
+```bash
+./scripts/run_smoke.sh
+```
+
+Defaults used by `run_smoke.sh`:
+- `EMU_FILE=ROMS/Apple2e.emu`
+- `PASTE_FILE=/Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon`
+- `STEPS=80000000`
+- `HALT_EXECUTION=0x33D2,0x33C0`
+
+Override example:
+
+```bash
+STEPS=120000000 HALT_EXECUTION=0x1234,0x5678 ./scripts/run_smoke.sh
 ```
 
 ## Known gaps

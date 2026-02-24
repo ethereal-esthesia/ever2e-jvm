@@ -11,7 +11,9 @@ import java.nio.file.Paths;
 import java.awt.GraphicsEnvironment;
 import java.text.DecimalFormat;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 
 import peripherals.PeripheralIIe;
@@ -76,6 +78,20 @@ public class Emulator8Coordinator {
 		if( parsed<0 || parsed>0xffff )
 			throw new IllegalArgumentException(argName+" must be in [0..65535], got "+value);
 		return parsed;
+	}
+
+	private static void parseWordListArg(String value, String argName, Set<Integer> out) {
+		String raw = value==null ? "" : value.trim();
+		if( raw.isEmpty() )
+			throw new IllegalArgumentException("Missing value for "+argName);
+		for( String token : raw.split(",") ) {
+			String t = token.trim();
+			if( t.isEmpty() )
+				continue;
+			out.add(parseWordArg(t, argName));
+		}
+		if( out.isEmpty() )
+			throw new IllegalArgumentException("Missing value for "+argName);
 	}
 
 	private static void queueBasicText(KeyboardIIe keyboard, String source, String basicText) {
@@ -153,7 +169,7 @@ public class Emulator8Coordinator {
 			String sdlFullscreenMode = "exclusive";
 			boolean sdlImeUiSelf = false;
 			Integer resetPFlagValue = null;
-			Integer haltExecution = null;
+			Set<Integer> haltExecutions = new LinkedHashSet<>();
 			String pasteFile = null;
 		String pasteText = null;
 		for( int i = 0; i<argList.length; i++ ) {
@@ -255,10 +271,10 @@ public class Emulator8Coordinator {
 			else if( "--halt-execution".equals(arg) ) {
 				if( i+1>=argList.length )
 					throw new IllegalArgumentException("Missing value for --halt-execution");
-				haltExecution = parseWordArg(argList[++i], "--halt-execution");
+				parseWordListArg(argList[++i], "--halt-execution", haltExecutions);
 			}
 			else if( arg.startsWith("--halt-execution=") ) {
-				haltExecution = parseWordArg(arg.substring("--halt-execution=".length()), "--halt-execution");
+				parseWordListArg(arg.substring("--halt-execution=".length()), "--halt-execution", haltExecutions);
 			}
 			else if( "--paste-file".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -471,10 +487,11 @@ public class Emulator8Coordinator {
 	   		final PrintWriter finalTraceWriter = traceWriter;
 	   		final String finalTracePhase = tracePhase;
 	   		final Integer finalTraceStartPc = traceStartPc;
-	   		final Integer finalHaltExecution = haltExecution;
+	   		final Set<Integer> finalHaltExecutions = haltExecutions;
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
 	   		final KeyboardIIe finalKeyboard = keyboard;
 	   		final boolean[] haltedAtAddress = new boolean[] { false };
+	   		final int[] haltedAtPc = new int[] { -1 };
 	   		final boolean[] traceStarted = new boolean[] { finalTraceStartPc==null };
 	   		final long[] traceStepBase = new long[] { -1L };
 	   		final String finalPasteFile = pasteFile;
@@ -501,7 +518,7 @@ public class Emulator8Coordinator {
 	   					}
 	   				}
 	   			}
-	   			if( finalTraceWriter==null && !(preCycle && finalHaltExecution!=null) )
+	   			if( finalTraceWriter==null && !(preCycle && !finalHaltExecutions.isEmpty()) )
 	   				return true;
 	   			if( !traceStarted[0] && preCycle && finalTraceStartPc!=null &&
 	   					(cpu.getPendingPC()&0xffff)==(finalTraceStartPc&0xffff) ) {
@@ -510,10 +527,12 @@ public class Emulator8Coordinator {
 	   			}
 	   			if( traceStarted[0] && traceStepBase[0]<0 )
 	   				traceStepBase[0] = step;
-	   			boolean hitStopAddress = preCycle && finalHaltExecution!=null &&
-	   					(cpu.getPendingPC()&0xffff)==(finalHaltExecution&0xffff);
+	   			int pendingPc = cpu.getPendingPC()&0xffff;
+	   			boolean hitStopAddress = preCycle && !finalHaltExecutions.isEmpty() &&
+	   					finalHaltExecutions.contains(pendingPc);
 	   			if( hitStopAddress && !"pre".equals(finalTracePhase) ) {
 	   				haltedAtAddress[0] = true;
+	   				haltedAtPc[0] = pendingPc;
 	   				return false;
 	   			}
 	   			if( hitStopAddress && finalTraceWriter!=null && "pre".equals(finalTracePhase) ) {
@@ -537,6 +556,7 @@ public class Emulator8Coordinator {
 	   						opcode.getAddressMode()
 	   				);
 	   				haltedAtAddress[0] = true;
+	   				haltedAtPc[0] = pendingPc;
 	   				return false;
 	   			}
 	   			if( !traceStarted[0] )
@@ -592,8 +612,8 @@ public class Emulator8Coordinator {
 	   		if( traceWriter!=null )
 	   			traceWriter.close();
 			System.out.println("Stopped after "+steps+" CPU steps");
-			if( haltExecution!=null && haltedAtAddress[0] )
-				System.out.println("Stopped at PC="+Cpu65c02.getHexString(haltExecution, 4));
+			if( !haltExecutions.isEmpty() && haltedAtAddress[0] )
+				System.out.println("Stopped at PC="+Cpu65c02.getHexString(haltedAtPc[0], 4));
 			System.out.println("PC="+Cpu65c02.getHexString(cpu.getRegister().getPC(), 4)+
 					" A="+Cpu65c02.getHexString(cpu.getRegister().getA(), 2)+
 					" X="+Cpu65c02.getHexString(cpu.getRegister().getX(), 2)+
