@@ -1,11 +1,18 @@
 # macOS Finder metadata
 .DS_Store
 **/.DS_Store
+.vscode/
 
 # Java build outputs
 target/
 out/
 .gradle/
+build/
+dist/
 
-# Local/generated ROM artifacts
+# Binary firmware/images (do not track)
 ROMS/
+DISKS/*.NIB
+
+# Logs
+*.log

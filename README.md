@@ -44,6 +44,12 @@ Windowed run (LWJGL):
 ./gradlew run
 ```
 
+Windowed run (SDL test backend):
+
+```bash
+./gradlew runSdl
+```
+
 ## CLI args
 
 - `--steps N`
@@ -76,6 +82,14 @@ Windowed run (LWJGL):
   - Force quiet mode (kept for compatibility).
 - `--keylog`
   - Enable keyboard input logging to stderr (`[lwjgl-key]` and key probe events).
+- `--window-backend lwjgl|sdl`
+  - Select window backend (default `lwjgl`, optional `sdl` for MAME-style fullscreen testing).
+- `--start-fullscreen`
+  - Start directly in fullscreen mode.
+- `--text-input-mode off|offscreen|normal|center`
+  - SDL text input behavior (`off` disables host text input, `offscreen` requests text input but moves caret area offscreen, `center` places caret area at window center, `normal` uses default text input area).
+- `--sdl-fullscreen-mode exclusive|desktop`
+  - SDL fullscreen style (`exclusive` uses a display mode, `desktop` uses borderless desktop fullscreen mode).
 
 Startup behavior:
 - With sound enabled, the emulator performs an internal silent JIT-prime pass (300000 steps) on the same object graph before normal logging begins, to reduce startup audio jitter.
