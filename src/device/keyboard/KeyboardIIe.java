@@ -586,8 +586,26 @@ public class KeyboardIIe extends Keyboard {
 			return;
 		for( int i = 0; i<text.length(); i++ ) {
 			char c = text.charAt(i);
+			if( c==0x0d ) {
+				// Treat CRLF as a single return.
+				if( i+1<text.length() && text.charAt(i+1)==0x0a )
+					i++;
+				pushKeyCodeInternal(0x0d, true);
+				continue;
+			}
 			pushKeyCodeInternal(c==0x0a ? 0x0d:c, true);
 		}
+	}
+
+	private static String trimTrailingClipboardNewline(String text) {
+		if( text==null || text.isEmpty() )
+			return text;
+		// Keep one intentional trailing newline, but drop one extra duplicate.
+		if( text.endsWith("\r\n\r\n") )
+			return text.substring(0, text.length()-2);
+		if( text.endsWith("\n\n") || text.endsWith("\r\r") )
+			return text.substring(0, text.length()-1);
+		return text;
 	}
 
 	public long getQueuedKeyCount() {
@@ -655,7 +673,7 @@ public class KeyboardIIe extends Keyboard {
 				Transferable contents = clipboard.getContents(null);
 				if( contents!=null && contents.isDataFlavorSupported(DataFlavor.stringFlavor) ) {
 					try {
-						queuePasteText(contents.getTransferData(DataFlavor.stringFlavor).toString());
+						queuePasteText(trimTrailingClipboardNewline(contents.getTransferData(DataFlavor.stringFlavor).toString()));
 					} catch( UnsupportedFlavorException | IOException | IllegalStateException e ) {
 						System.err.println("Warning: unsupported clipboard contents");
 					}
