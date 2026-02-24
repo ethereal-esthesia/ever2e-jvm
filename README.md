@@ -174,6 +174,8 @@ Defaults used by `run_smoke.sh`:
 - `PASTE_FILE=/Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon`
 - `STEPS=80000000`
 - `HALT_EXECUTION=0x33D2,0x33C0`
+- `--no-sound` is enabled by default for silent headless smoke runs
+- Script auto-selects Java 25 via `/usr/libexec/java_home -v 25` when current Java is older
 
 Override example:
 

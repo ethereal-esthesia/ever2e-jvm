@@ -537,6 +537,15 @@ public class KeyboardIIe extends Keyboard {
 		queuedKeyCount++;
 	}
 
+	public void queuePasteText(String text) {
+		if( text==null || text.isEmpty() )
+			return;
+		for( int i = 0; i<text.length(); i++ ) {
+			char c = text.charAt(i);
+			pushKeyCode(c==0x0a ? 0x0d:c);
+		}
+	}
+
 	public long getQueuedKeyCount() {
 		return queuedKeyCount;
 	}
@@ -600,12 +609,9 @@ public class KeyboardIIe extends Keyboard {
 		case KEY_MASK_F12|KEY_MASK_SHIFT:
 			if( keyQueue.size()==0 && clipboard!=null ) {
 				Transferable contents = clipboard.getContents(null);
-				char [] pasteContent = null;
 				if( contents!=null && contents.isDataFlavorSupported(DataFlavor.stringFlavor) ) {
 					try {
-						pasteContent = contents.getTransferData(DataFlavor.stringFlavor).toString().toCharArray();
-						for( char c : pasteContent )
-							pushKeyCode(c==0x0a ? 0x0d:c);
+						queuePasteText(contents.getTransferData(DataFlavor.stringFlavor).toString());
 					} catch( UnsupportedFlavorException | IOException | IllegalStateException e ) {
 						System.err.println("Warning: unsupported clipboard contents");
 					}

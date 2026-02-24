@@ -95,8 +95,7 @@ public class Emulator8Coordinator {
 	}
 
 	private static void queueBasicText(KeyboardIIe keyboard, String source, String basicText) {
-		for( char c : basicText.toCharArray() )
-			keyboard.pushKeyCode(c==0x0a ? 0x0d:c);
+		keyboard.queuePasteText(basicText);
 		System.out.println("Queued BASIC paste from "+source+" ("+basicText.length()+" chars)");
 	}
 

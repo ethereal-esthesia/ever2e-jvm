@@ -38,7 +38,20 @@ if [[ ! -f "$PASTE_FILE" ]]; then
   exit 1
 fi
 
+JAVA_MAJOR="$(java -version 2>&1 | sed -n '1s/.*version "\(.*\)".*/\1/p' | cut -d. -f1)"
+if [[ -n "$JAVA_MAJOR" && "$JAVA_MAJOR" -lt 25 ]]; then
+  if [[ -x /usr/libexec/java_home ]]; then
+    JAVA25_HOME="$(/usr/libexec/java_home -v 25 2>/dev/null || true)"
+    if [[ -n "$JAVA25_HOME" ]]; then
+      export JAVA_HOME="$JAVA25_HOME"
+      export PATH="$JAVA_HOME/bin:$PATH"
+      echo "Using JAVA_HOME=$JAVA_HOME"
+    fi
+  fi
+fi
+
 RUN_ARGS="$EMU_FILE --steps $STEPS --paste-file $PASTE_FILE --halt-execution $HALT_EXECUTION --print-text-at-exit --debug"
+RUN_ARGS="$RUN_ARGS --no-sound"
 if [[ -n "$EXTRA_ARGS" ]]; then
   RUN_ARGS="$RUN_ARGS $EXTRA_ARGS"
 fi
