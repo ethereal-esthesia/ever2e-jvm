@@ -25,6 +25,7 @@ public class KeyboardIIe extends Keyboard {
 
 	private ConcurrentLinkedQueue<Integer> keyEventQueue = new ConcurrentLinkedQueue<>();
 	private Queue<Byte> keyQueue = new LinkedList<>();
+	private Queue<Boolean> pasteMarkerQueue = new LinkedList<>();
 	private Toolkit toolKit;
 	private Clipboard clipboard;
 
@@ -41,6 +42,8 @@ public class KeyboardIIe extends Keyboard {
 	private int delayCount;
 	private long queuedKeyCount;
 	private long consumedQueuedKeyCount;
+	private int pendingPastedKeys;
+	private boolean pasteInputSuppressed;
 	
 	private static final int PRE_REPEAT_FLOP_COUNT = 11;
 	private static final int FLOP_DELAY_CYCLES = 4;
@@ -271,7 +274,7 @@ public class KeyboardIIe extends Keyboard {
 			break;
 		case KeyEvent.VK_F12:
 			if( (modifierSet&KEY_MASK_CTRL)!=0 && !isHalted ) {
-				keyQueue.clear();
+				clearQueuedKeys();
 				isHalted = true;
 				cpu.setInterruptPending(Cpu65c02.INTERRUPT_HLT);
 			}
@@ -282,6 +285,8 @@ public class KeyboardIIe extends Keyboard {
 			break;
 
 		default:
+			if( pasteInputSuppressed )
+				return;
 			// Keep control/navigation on keycode path, but use layout-resolved
 			// printable chars for locale-correct text input timing/repeat.
 			if( (modifierSet&KEY_MASK_CTRL)==0 && !isNumpadKey(keyIndex) ) {
@@ -501,12 +506,52 @@ public class KeyboardIIe extends Keyboard {
 	}
 
 	private boolean isConsumed;
+
+	private void clearQueuedKeys() {
+		keyQueue.clear();
+		pasteMarkerQueue.clear();
+		pendingPastedKeys = 0;
+		pasteInputSuppressed = false;
+	}
+
+	private void clearPendingKeyInputQueue() {
+		keyEventQueue.clear();
+	}
+
+	private void clearHeldKeyState() {
+		keyPressed.clear();
+		functionKeySet = 0;
+		keyCount = 0;
+		delayCount = 0;
+	}
+
+	private void pushKeyCodeInternal(int i, boolean fromPaste) {
+		keyQueue.add((byte) i);
+		pasteMarkerQueue.add(Boolean.valueOf(fromPaste));
+		if( fromPaste ) {
+			pasteInputSuppressed = true;
+			pendingPastedKeys++;
+		}
+		queuedKeyCount++;
+	}
 	
 	public void toggleKeyQueue( boolean consume ) {
 		if( consume ) {
 			// C000 read: present next queued key as a fresh strobe.
 			if( !isConsumed && keyQueue.size()>0 ) {
 				keyCode = (byte) (keyQueue.poll()|0x80);
+				boolean consumedPasteKey = Boolean.TRUE.equals(pasteMarkerQueue.poll());
+				if( consumedPasteKey ) {
+					pendingPastedKeys--;
+					if( pendingPastedKeys<=0 ) {
+						pendingPastedKeys = 0;
+						if( pasteInputSuppressed ) {
+							pasteInputSuppressed = false;
+							clearPendingKeyInputQueue();
+							clearHeldKeyState();
+						}
+					}
+				}
 				consumedQueuedKeyCount++;
 				isConsumed = true;
 			}
@@ -533,8 +578,7 @@ public class KeyboardIIe extends Keyboard {
 	}
 
 	public void pushKeyCode( int i ) {
-		keyQueue.add((byte) i);
-		queuedKeyCount++;
+		pushKeyCodeInternal(i, false);
 	}
 
 	public void queuePasteText(String text) {
@@ -542,7 +586,7 @@ public class KeyboardIIe extends Keyboard {
 			return;
 		for( int i = 0; i<text.length(); i++ ) {
 			char c = text.charAt(i);
-			pushKeyCode(c==0x0a ? 0x0d:c);
+			pushKeyCodeInternal(c==0x0a ? 0x0d:c, true);
 		}
 	}
 
@@ -595,7 +639,7 @@ public class KeyboardIIe extends Keyboard {
 
 		case KEY_EVENT_RESET_PRESS:
 			cpu.setInterruptPending(Cpu65c02.INTERRUPT_HLT);
-			keyQueue.clear();
+			clearQueuedKeys();
 			break;
 
 		case KEY_EVENT_RESET_RELEASE:
@@ -603,7 +647,7 @@ public class KeyboardIIe extends Keyboard {
 			break;
 
 		case KEY_MASK_F12:
-			keyQueue.clear();
+			clearQueuedKeys();
 			break;
 			
 		case KEY_MASK_F12|KEY_MASK_SHIFT:
@@ -627,11 +671,14 @@ public class KeyboardIIe extends Keyboard {
 	public void coldReset() throws HardwareException {
 		keyEventQueue = new ConcurrentLinkedQueue<>();
 		keyQueue = new LinkedList<>();
+		pasteMarkerQueue = new LinkedList<>();
 		isHalted = false;
 		cycleCount = 0;
 		delayCount = 0;
 		queuedKeyCount = 0L;
 		consumedQueuedKeyCount = 0L;
+		pendingPastedKeys = 0;
+		pasteInputSuppressed = false;
 		capsLockState = isCapsLockDown();
 		applyCapsLockState();
 	}

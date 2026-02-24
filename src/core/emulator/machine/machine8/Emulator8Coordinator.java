@@ -314,12 +314,16 @@ public class Emulator8Coordinator {
 		System.out.println("Loading \""+propertiesFile+"\" into memory");
 		VirtualMachineProperties properties = new VirtualMachineProperties(propertiesFile);
 
-		double cpuMultiplier = new Double(properties.getProperty("machine.cpu.mult", "1")); // 1020484hz
+		double cpuMultiplier = Double.parseDouble(properties.getProperty("machine.cpu.mult", "1")); // 1020484hz
+		// Keep keyboard manager timing at Apple IIe-like repeat cadence.
+		// Key hold delay/repeat logic in KeyboardIIe.cycle() depends on this rate.
+		double keyActionMultiplier = 1./17030.;
+		if( cpuMultiplier<=0d )
+			throw new IllegalArgumentException("machine.cpu.mult must be > 0, got "+cpuMultiplier);
 
 		double cpuClock = 1020484d;  // 1020484hz
 		double unitsPerCycle = (1000l<<GRANULARITY_BITS_PER_MS)/cpuClock;  // 20 bits per ms granularity
 		double displayMultiplier = 1d;  // 59.92fps
-		double keyActionMultiplier = 1./17030.;
 
 		PriorityQueue<HardwareManager> hardwareManagerQueue = new PriorityQueue<>();
 
