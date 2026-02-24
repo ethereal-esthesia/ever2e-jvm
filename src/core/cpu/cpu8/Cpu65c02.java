@@ -1123,14 +1123,8 @@ public class Cpu65c02 extends HardwareManager {
 				// This sequence lasts 6 cycles (NCR 65C02 Datasheet)
 				// Also pulls 3 values from the stack and resets all but 2 switches in the MMU
 				/// Should emulate reset signature recognition described in 4-14 and 5-29 of Sather ///
-				/// reg.getS() = 0;  /// Verify
-	///			popStack();
-	///			popStack();
-	///			popStack();
-	/// Compatibility with test emulator
-	pushStack(0x00);
-	pushStack(0x00);
-	pushStack(0x00);
+				// Reset adjusts S as if three pulls occurred, but does not write stack memory.
+				reg.setS(reg.getS()-3);
 				reg.setP(StatusRegister.I);    // Set interrupt disable
 				reg.clearP(StatusRegister.D);  // Clear decimal flag
 				if( resetPOverride!=null ) {
