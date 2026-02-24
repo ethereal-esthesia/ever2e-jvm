@@ -441,6 +441,9 @@ public class Emulator8Coordinator {
 		}
 		
 		Emulator emulator = new Emulate65c02(hardwareManagerQueue, GRANULARITY_BITS_PER_MS);
+		boolean runningHeadless = isHeadlessMode(windowBackend);
+		if( runningHeadless )
+			emulator.setRealtimeThrottleEnabled(false);
 		if( ENABLE_STARTUP_JIT_PRIME && !noSound ) {
 			try {
 				runSilently(() -> emulator.startWithStepPhases(STARTUP_JIT_PRIME_STEPS, cpu, (step, manager, preCycle) -> true));

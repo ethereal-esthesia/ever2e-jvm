@@ -26,6 +26,7 @@ public class Emulator {
 
 	protected PriorityQueue<HardwareManager> hardwareManagerQueue;
 	protected int granularityBitsPerSecond;
+	private boolean realtimeThrottleEnabled = true;
 	
 	public Emulator(PriorityQueue<HardwareManager> hardwareManagerQueue, int granularityBitsPerMs)
 			throws HardwareException {
@@ -36,6 +37,10 @@ public class Emulator {
 
 	public static void setBlockingDebugEnabled(boolean enabled) {
 		blockingDebugEnabled = enabled;
+	}
+
+	public void setRealtimeThrottleEnabled(boolean enabled) {
+		realtimeThrottleEnabled = enabled;
 	}
 
 	public void start() throws HardwareException, InterruptedException {
@@ -99,7 +104,7 @@ public class Emulator {
 		do {
 			HardwareManager nextManager = hardwareManagerQueue.remove();
 			long clockTime = (System.nanoTime()-schedulerStartNs)/1_000_000L;
-			if( maxSteps<0 ) {
+			if( realtimeThrottleEnabled && maxSteps<0 ) {
 				long waitTime = (nextManager.getNextCycleUnits()>>granularityBitsPerSecond)-clockTime;
 				if( waitTime>0 ) {
 					if( blockingDebugEnabled ) {
