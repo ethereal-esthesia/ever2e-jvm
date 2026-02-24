@@ -64,6 +64,7 @@ Windowed run (SDL test backend):
   - Run with console text display (no GUI window).
 - `--print-text-at-exit`
   - Print the active 40x24 text page on exit (headless/text-console useful).
+  - Works without `--debug` (text dump remains visible even in quiet mode).
 - `--show-fps`
   - Print windowed display FPS once per second to stderr.
 - `--trace-start-pc <addr>`
@@ -161,6 +162,12 @@ Queue the committed paste-loader smoke test and execute:
 
 ```bash
 ./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon --print-text-at-exit --debug"
+```
+
+Force memtest long-run success checkpoint (`System OK` text + stable PC):
+
+```bash
+./gradlew runHeadless --args="ROMS/Apple2eForceMemtest.emu --steps 20000000 --halt-execution 0xC79D --require-halt-pc 0xC79D --print-text-at-exit --no-sound"
 ```
 
 One-command smoke task:

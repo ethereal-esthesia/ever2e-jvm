@@ -360,7 +360,7 @@ public class Emulator8Coordinator {
 					" textInputMode="+textInputMode+
 					" sdlFullscreenMode="+sdlFullscreenMode);
 		}
-			if( !debugLogging )
+			if( !debugLogging && !printTextAtExit )
 				System.setOut(new PrintStream(OutputStream.nullOutputStream()));
 		tracePhase = tracePhase.trim().toLowerCase();
 		if( !"pre".equals(tracePhase) && !"post".equals(tracePhase) )
