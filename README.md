@@ -160,7 +160,7 @@ Queue a BASIC program file for typed input:
 Queue the committed paste-loader smoke test and execute:
 
 ```bash
-./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_4x.mon --print-text-at-exit --debug"
+./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon --print-text-at-exit --debug"
 ```
 
 ## Known gaps
@@ -186,4 +186,3 @@ sudo defaults delete /Library/Preferences/FeatureFlags/Domain/UIKit.plist redesi
 ```
 
 Then reboot macOS again.
-
