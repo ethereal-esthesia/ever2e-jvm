@@ -92,11 +92,14 @@ tasks.register('smoke', JavaExec) {
     def pasteFile = providers.gradleProperty('smokePasteFile').orElse(file('ROMS/opcode_smoke_loader_hgr_mem_16k.mon').absolutePath).get()
     def steps = providers.gradleProperty('smokeSteps').orElse('80000000').get()
     def haltExecution = providers.gradleProperty('smokeHaltExecution').orElse('0x33D2,0x33C0').get()
+    def requireHaltPc = providers.gradleProperty('smokeRequireHaltPc').orElse('0x33D2').get()
 
     args emuFile,
             '--steps', steps,
             '--paste-file', pasteFile,
             '--halt-execution', haltExecution,
+            '--require-halt-pc', requireHaltPc,
+            '--print-cpu-state-at-exit',
             '--print-text-at-exit',
             '--debug',
             '--no-sound'

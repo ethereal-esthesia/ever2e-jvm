@@ -158,6 +158,7 @@ public class Emulator8Coordinator {
 		Integer traceStartPc = null;
 			boolean textConsole = false;
 			boolean printTextAtExit = false;
+			boolean printCpuStateAtExit = false;
 			boolean showFps = false;
 			boolean noSound = false;
 			boolean debugLogging = false;
@@ -169,6 +170,7 @@ public class Emulator8Coordinator {
 			boolean sdlImeUiSelf = false;
 			Integer resetPFlagValue = null;
 			Set<Integer> haltExecutions = new LinkedHashSet<>();
+			Set<Integer> requireHaltPcs = new LinkedHashSet<>();
 			String pasteFile = null;
 		String pasteText = null;
 		for( int i = 0; i<argList.length; i++ ) {
@@ -205,6 +207,9 @@ public class Emulator8Coordinator {
 			}
 			else if( "--print-text-at-exit".equals(arg) ) {
 				printTextAtExit = true;
+			}
+			else if( "--print-cpu-state-at-exit".equals(arg) ) {
+				printCpuStateAtExit = true;
 			}
 			else if( "--show-fps".equals(arg) ) {
 				showFps = true;
@@ -274,6 +279,14 @@ public class Emulator8Coordinator {
 			}
 			else if( arg.startsWith("--halt-execution=") ) {
 				parseWordListArg(arg.substring("--halt-execution=".length()), "--halt-execution", haltExecutions);
+			}
+			else if( "--require-halt-pc".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --require-halt-pc");
+				parseWordListArg(argList[++i], "--require-halt-pc", requireHaltPcs);
+			}
+			else if( arg.startsWith("--require-halt-pc=") ) {
+				parseWordListArg(arg.substring("--require-halt-pc=".length()), "--require-halt-pc", requireHaltPcs);
 			}
 			else if( "--paste-file".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -626,6 +639,15 @@ public class Emulator8Coordinator {
 					" Y="+Cpu65c02.getHexString(cpu.getRegister().getY(), 2)+
 					" P="+Cpu65c02.getHexString(cpu.getRegister().getP(), 2)+
 					" S="+Cpu65c02.getHexString(cpu.getRegister().getS(), 2));
+			if( printCpuStateAtExit )
+				printCpuState(maxCpuSteps, steps, haltedAtAddress[0], haltedAtPc[0], cpu);
+			if( !requireHaltPcs.isEmpty() ) {
+				int finalPc = haltedAtAddress[0] ? (haltedAtPc[0]&0xffff) : (cpu.getRegister().getPC()&0xffff);
+				if( !requireHaltPcs.contains(finalPc) ) {
+					System.err.println("Error: final PC did not match required value(s). PC="+Cpu65c02.getHexString(finalPc, 4));
+					System.exit(2);
+				}
+			}
 			if( pasteFile!=null && keyboard!=null )
 				System.out.println("basic_queue queued="+keyboard.getQueuedKeyCount()+
 						" consumed="+keyboard.getConsumedQueuedKeyCount()+
@@ -669,6 +691,8 @@ public class Emulator8Coordinator {
 	   			return true;
 	   		});
 			System.out.println("Done");
+			if( printCpuStateAtExit )
+				printCpuState(maxCpuSteps, -1, false, -1, cpu);
 			if( printTextAtExit && bus instanceof MemoryBusIIe )
 				printTextScreen((MemoryBusIIe) bus, memory);
 	   	}
@@ -693,6 +717,17 @@ public class Emulator8Coordinator {
 			System.out.println(line.toString());
 		}
 		System.out.println("text_screen_end");
+	}
+
+	private static void printCpuState(long maxCpuSteps, long stoppedAfterSteps, boolean haltedAtAddress, int haltedAtPc, Cpu65c02 cpu) {
+		System.out.println("cpu_state_begin");
+		System.out.println("step_limit=" + maxCpuSteps);
+		System.out.println("stopped_after_steps=" + stoppedAfterSteps);
+		System.out.println("halt_requested=" + (haltedAtAddress ? 1 : 0));
+		if( haltedAtAddress )
+			System.out.println("halt_pc=" + Cpu65c02.getHexString(haltedAtPc, 4));
+		System.out.println("registers=" + cpu.getRegister().toString());
+		System.out.println("cpu_state_end");
 	}
 
 	private static char transliterateText(int ascii) {
