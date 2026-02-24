@@ -163,24 +163,23 @@ Queue the committed paste-loader smoke test and execute:
 ./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon --print-text-at-exit --debug"
 ```
 
-One-command smoke runner:
+One-command smoke task:
 
 ```bash
-./scripts/run_smoke.sh
+./gradlew runSmoke
 ```
 
-Defaults used by `run_smoke.sh`:
-- `EMU_FILE=ROMS/Apple2e.emu`
-- `PASTE_FILE=/Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon`
-- `STEPS=80000000`
-- `HALT_EXECUTION=0x33D2,0x33C0`
+Defaults used by `runSmoke`:
+- `smokeEmuFile=ROMS/Apple2e.emu`
+- `smokePasteFile=/Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon`
+- `smokeSteps=80000000`
+- `smokeHaltExecution=0x33D2,0x33C0`
 - `--no-sound` is enabled by default for silent headless smoke runs
-- Script auto-selects Java 25 via `/usr/libexec/java_home -v 25` when current Java is older
 
 Override example:
 
 ```bash
-STEPS=120000000 HALT_EXECUTION=0x1234,0x5678 ./scripts/run_smoke.sh
+./gradlew runSmoke -PsmokeSteps=120000000 -PsmokeHaltExecution=0x1234,0x5678
 ```
 
 ## Known gaps

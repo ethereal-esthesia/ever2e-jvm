@@ -9,6 +9,9 @@ version = '0.1.0'
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 layout.buildDirectory.set(file('target'))
@@ -75,6 +78,28 @@ tasks.register('runHeadless', JavaExec) {
     mainClass = application.mainClass
     workingDir = projectDir
     jvmArgs '-Djava.awt.headless=true'
+}
+
+tasks.register('runSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Run headless opcode smoke test with default loader and halt points.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = application.mainClass
+    workingDir = projectDir
+    jvmArgs '-Djava.awt.headless=true'
+
+    def emuFile = providers.gradleProperty('smokeEmuFile').orElse('ROMS/Apple2e.emu').get()
+    def pasteFile = providers.gradleProperty('smokePasteFile').orElse(file('ROMS/opcode_smoke_loader_hgr_mem_16k.mon').absolutePath).get()
+    def steps = providers.gradleProperty('smokeSteps').orElse('80000000').get()
+    def haltExecution = providers.gradleProperty('smokeHaltExecution').orElse('0x33D2,0x33C0').get()
+
+    args emuFile,
+            '--steps', steps,
+            '--paste-file', pasteFile,
+            '--halt-execution', haltExecution,
+            '--print-text-at-exit',
+            '--debug',
+            '--no-sound'
 }
 
 tasks.register('runSdl', JavaExec) {
