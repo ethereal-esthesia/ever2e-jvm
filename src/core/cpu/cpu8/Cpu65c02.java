@@ -514,8 +514,12 @@ public class Cpu65c02 extends HardwareManager {
 				// +1 byte
 				operandPtr = memory.getByte(operandCounter);
 				operandPtr = memory.getWord16LittleEndian(operandPtr, 0xff);
+				int basePtr = operandPtr;
 				operandPtr += reg.getY();
 				operandPtr &= 0xffff;
+				// 65C02 adds one cycle for (indirect),Y reads on page cross.
+				if( (basePtr>>8)!=(operandPtr>>8) && opcode.getMnemonic()!=OpcodeMnemonic.STA )
+					cycleCount++;
 				break;
 	
 			case ZPG_X:

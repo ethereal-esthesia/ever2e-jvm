@@ -240,6 +240,13 @@ public class MemoryBusIIe extends MemoryBus8 {
 			return super.readMem(address);
 
 		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.resetState();
+			switchHRamRd.setState();
+			switchPreWrite.resetState();
+			switchHRamWrt.resetState();
+		}
 
 	};
 
@@ -256,6 +263,15 @@ public class MemoryBusIIe extends MemoryBus8 {
 			return super.readMem(address);
 
 		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.resetState();
+			switchHRamRd.resetState();
+			if( switchPreWrite.getState() )
+				switchHRamWrt.setState();
+			else
+				switchPreWrite.setState();
+		}
 
 	};
 
@@ -269,6 +285,13 @@ public class MemoryBusIIe extends MemoryBus8 {
 			switchHRamWrt.resetState();
 			return super.readMem(address);
 
+		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.resetState();
+			switchHRamRd.resetState();
+			switchPreWrite.resetState();
+			switchHRamWrt.resetState();
 		}
 
 	};
@@ -286,6 +309,15 @@ public class MemoryBusIIe extends MemoryBus8 {
 			return super.readMem(address);
 
 		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.resetState();
+			switchHRamRd.setState();
+			if( switchPreWrite.getState() )
+				switchHRamWrt.setState();
+			else
+				switchPreWrite.setState();
+		}
 
 	};
 
@@ -299,6 +331,13 @@ public class MemoryBusIIe extends MemoryBus8 {
 			switchHRamWrt.resetState();
 			return super.readMem(address);
 
+		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.setState();
+			switchHRamRd.setState();
+			switchPreWrite.resetState();
+			switchHRamWrt.resetState();
 		}
 
 	};
@@ -316,6 +355,15 @@ public class MemoryBusIIe extends MemoryBus8 {
 			return super.readMem(address);
 
 		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.setState();
+			switchHRamRd.resetState();
+			if( switchPreWrite.getState() )
+				switchHRamWrt.setState();
+			else
+				switchPreWrite.setState();
+		}
 
 	};
 
@@ -329,6 +377,13 @@ public class MemoryBusIIe extends MemoryBus8 {
 			switchHRamWrt.resetState();
 			return super.readMem(address);
 
+		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.setState();
+			switchHRamRd.resetState();
+			switchPreWrite.resetState();
+			switchHRamWrt.resetState();
 		}
 
 	};
@@ -345,6 +400,15 @@ public class MemoryBusIIe extends MemoryBus8 {
 				switchPreWrite.setState();
 			return super.readMem(address);
 
+		}
+		@Override
+		public void writeMem(int address, int value) {
+			switchBank1.setState();
+			switchHRamRd.setState();
+			if( switchPreWrite.getState() )
+				switchHRamWrt.setState();
+			else
+				switchPreWrite.setState();
 		}
 
 	};
@@ -987,7 +1051,94 @@ public class MemoryBusIIe extends MemoryBus8 {
 			return memory.getByte(address);
 		}
 		if( address<0xc100 )
-			return monitor==null ? 0:monitor.getLastRead();
+			// Snapshot dumps should avoid side effects, but still expose live status readings.
+			switch( address ) {
+				case 0xc010:
+					return keyboard==null ? 0 : keyboard.getHeldKeyCode();
+				case 0xc011: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					int status = switchBank1.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+					return 0x80 ^ status; // Inverted BANK1 readback.
+				}
+				case 0xc012: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchHRamRd.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc013: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchRamRead.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc014: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchRamWrt.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc015: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchIntCxRom.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc016: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchAltZp.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc017: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchSlotC3Rom.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc018: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switch80Store.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc019: {
+					boolean inVblank = false;
+					if( monitor!=null )
+						inVblank = monitor.isVbl();
+					int vblBar = inVblank ? 0x00:0x80;
+					if( keyboard==null )
+						return vblBar;
+					return vblBar | (keyboard.getTypedKeyCode()&0x7f);
+				}
+				case 0xc01a: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchText.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc01b: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchMixed.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc01c: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchPage2.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc01d: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchHiRes.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc01e: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switchAltCharSet.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc01f: {
+					int keyCode = keyboard==null ? 0 : keyboard.getTypedKeyCode();
+					return switch80Col.getState() ? (0x80|keyCode) : (0x7f&keyCode);
+				}
+				case 0xc061:
+				case 0xc069: {
+					return (keyboard!=null && keyboard.isAppleKey()) ? 0x80 : 0x00;
+				}
+				case 0xc062:
+				case 0xc06a: {
+					return (keyboard!=null && keyboard.isOptionKey()) ? 0x80 : 0x00;
+				}
+				case 0xc063:
+				case 0xc06b: {
+					return (keyboard!=null && keyboard.isShiftKey()) ? 0x80 : 0x00;
+				}
+				case 0xc068: {
+					return 0x00;
+				}
+				default:
+					return 0x00;
+			}
 		if( address<0xc800 ) {
 			int slot = (address-0xc000)>>8;
 			if( slot==3 ) {
@@ -995,20 +1146,20 @@ public class MemoryBusIIe extends MemoryBus8 {
 					return Byte.toUnsignedInt(rom16k[address-0xc000]);
 				if( slotRom[3] != null )
 					return Byte.toUnsignedInt(slotRom[3][address&0x00ff]);
-				return monitor==null ? 0:monitor.getLastRead();
+				return 0x00;
 			}
 			if( switchIntCxRom.getState() )
 				return Byte.toUnsignedInt(rom16k[address-0xc000]);
 			if( slotRom[slot] != null )
 				return Byte.toUnsignedInt(slotRom[slot][address&0x00ff]);
-			return monitor==null ? 0:monitor.getLastRead();
+			return 0x00;
 		}
 		if( address<0xd000 ) {
 			if( address==0xcfff )
-				return monitor==null ? 0:monitor.getLastRead();
+				return 0x00;
 			if( switchIntC8Rom.getState() || switchIntCxRom.getState() )
 				return Byte.toUnsignedInt(rom16k[address-0xc000]);
-			return monitor==null ? 0:monitor.getLastRead();
+			return 0x00;
 		}
 		if( switchHRamRd.getState() ) {
 			if( switchAltZp.getState() ) {
