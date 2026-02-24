@@ -452,10 +452,15 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
-			boolean vbl = monitor!=null && monitor.isVbl();
+			boolean inVblank = false;
+			if( monitor!=null ) {
+				inVblank = monitor.isVbl();
+			}
+			// Apple IIe RDVBL/VBLBAR ($C019) reports bit 7 high when not in VBL.
+			int vblBar = inVblank ? 0x00:0x80;
 			if( keyboard==null )
-				return vbl ? 0x80:0x00;
-			return vbl ? 0x80|keyboard.getTypedKeyCode():0x7f&keyboard.getTypedKeyCode();
+				return vblBar;
+			return vblBar | (keyboard.getTypedKeyCode()&0x7f);
 		}
 
 		@Override
@@ -984,6 +989,64 @@ public class MemoryBusIIe extends MemoryBus8 {
 	@Override
 	public int getByte( int address ) {
 		return memoryLayout.readMem(address);
+	}
+
+	public int peekByteNoSideEffects(int address) {
+		address &= 0xffff;
+		if( address<0x0200 ) {
+			if( switchAltZp.getState() )
+				return memory.getByte(BANKED_RAM|address);
+			return memory.getByte(address);
+		}
+		if( address<0xc000 ) {
+			boolean auxRead;
+			if( switch80Store.getState() ) {
+				if( ( address>=0x400 && address<0x800 ) || ( switchHiRes.getState() && address>=0x2000 && address<0x4000 ) )
+					auxRead = switchPage2.getState();
+				else
+					auxRead = switchRamRead.getState();
+			}
+			else
+				auxRead = switchRamRead.getState();
+			if( auxRead )
+				return memory.getByte(BANKED_RAM|address);
+			return memory.getByte(address);
+		}
+		if( address<0xc100 )
+			return monitor==null ? 0:monitor.getLastRead();
+		if( address<0xc800 ) {
+			int slot = (address-0xc000)>>8;
+			if( slot==3 ) {
+				if( switchIntCxRom.getState() || !switchSlotC3Rom.getState() )
+					return Byte.toUnsignedInt(rom16k[address-0xc000]);
+				if( slotRom[3] != null )
+					return Byte.toUnsignedInt(slotRom[3][address&0x00ff]);
+				return monitor==null ? 0:monitor.getLastRead();
+			}
+			if( switchIntCxRom.getState() )
+				return Byte.toUnsignedInt(rom16k[address-0xc000]);
+			if( slotRom[slot] != null )
+				return Byte.toUnsignedInt(slotRom[slot][address&0x00ff]);
+			return monitor==null ? 0:monitor.getLastRead();
+		}
+		if( address<0xd000 ) {
+			if( address==0xcfff )
+				return monitor==null ? 0:monitor.getLastRead();
+			if( switchIntC8Rom.getState() || switchIntCxRom.getState() )
+				return Byte.toUnsignedInt(rom16k[address-0xc000]);
+			return monitor==null ? 0:monitor.getLastRead();
+		}
+		if( switchHRamRd.getState() ) {
+			if( switchAltZp.getState() ) {
+				if( address<0xe000 && switchBank1.getState() )
+					return memory.getByte(BANKED_RAM|(address-0x1000));
+				return memory.getByte(BANKED_RAM|address);
+			}
+			if( address<0xe000 && switchBank1.getState() )
+				return memory.getByte(address-0x1000);
+			return memory.getByte(address);
+		}
+		return Byte.toUnsignedInt(rom16k[address-ROM_START]);
 	}
 
 	@Override

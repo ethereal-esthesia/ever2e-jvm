@@ -75,4 +75,9 @@ public class HeadlessVideoProbe extends HardwareManager implements VideoSignalSo
 	public boolean isVbl() {
 		return tracer.isVbl();
 	}
+
+	@Override
+	public int getVScan() {
+		return tracer.getVScan();
+	}
 }

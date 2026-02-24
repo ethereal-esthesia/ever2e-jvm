@@ -94,6 +94,20 @@ public class Emulator8Coordinator {
 			throw new IllegalArgumentException("Missing value for "+argName);
 	}
 
+	private static int[] parseWordRangeArg(String value, String argName) {
+		String raw = value==null ? "" : value.trim();
+		if( raw.isEmpty() )
+			throw new IllegalArgumentException("Missing value for "+argName);
+		String[] parts = raw.split(":", -1);
+		if( parts.length!=2 )
+			throw new IllegalArgumentException(argName+" must be in form <start:end>, got "+value);
+		int start = parseWordArg(parts[0].trim(), argName);
+		int end = parseWordArg(parts[1].trim(), argName);
+		if( end<start )
+			throw new IllegalArgumentException(argName+" end must be >= start, got "+value);
+		return new int[] { start, end };
+	}
+
 	private static void queueBasicText(KeyboardIIe keyboard, String source, String basicText) {
 		keyboard.queuePasteText(basicText);
 		System.out.println("Queued BASIC paste from "+source+" ("+basicText.length()+" chars)");
@@ -168,9 +182,13 @@ public class Emulator8Coordinator {
 			String textInputMode = "off";
 			String sdlFullscreenMode = "exclusive";
 			boolean sdlImeUiSelf = false;
-			Integer resetPFlagValue = null;
-			Set<Integer> haltExecutions = new LinkedHashSet<>();
-			Set<Integer> requireHaltPcs = new LinkedHashSet<>();
+		Integer resetPFlagValue = null;
+		Integer dumpPageAddress = null;
+		int dumpRangeStart = -1;
+		int dumpRangeEnd = -1;
+		boolean dumpAll = false;
+		Set<Integer> haltExecutions = new LinkedHashSet<>();
+		Set<Integer> requireHaltPcs = new LinkedHashSet<>();
 			String pasteFile = null;
 		String pasteText = null;
 		for( int i = 0; i<argList.length; i++ ) {
@@ -271,6 +289,29 @@ public class Emulator8Coordinator {
 			}
 			else if( arg.startsWith("--reset-pflag-value=") ) {
 				resetPFlagValue = parseByteArg(arg.substring("--reset-pflag-value=".length()), "--reset-pflag-value") | 0x30;
+			}
+			else if( "--dump-page".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --dump-page");
+				dumpPageAddress = parseWordArg(argList[++i], "--dump-page");
+			}
+			else if( arg.startsWith("--dump-page=") ) {
+				dumpPageAddress = parseWordArg(arg.substring("--dump-page=".length()), "--dump-page");
+			}
+			else if( "--dump-range".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --dump-range");
+				int[] range = parseWordRangeArg(argList[++i], "--dump-range");
+				dumpRangeStart = range[0];
+				dumpRangeEnd = range[1];
+			}
+			else if( arg.startsWith("--dump-range=") ) {
+				int[] range = parseWordRangeArg(arg.substring("--dump-range=".length()), "--dump-range");
+				dumpRangeStart = range[0];
+				dumpRangeEnd = range[1];
+			}
+			else if( "--dump-all".equals(arg) ) {
+				dumpAll = true;
 			}
 			else if( "--halt-execution".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -639,6 +680,12 @@ public class Emulator8Coordinator {
 					" S="+Cpu65c02.getHexString(cpu.getRegister().getS(), 2));
 			if( printCpuStateAtExit )
 				printCpuState(maxCpuSteps, steps, haltedAtAddress[0], haltedAtPc[0], cpu);
+			if( dumpPageAddress!=null )
+				printPageDump(bus, dumpPageAddress);
+			if( dumpRangeStart>=0 )
+				printRangeDump(bus, dumpRangeStart, dumpRangeEnd);
+			if( dumpAll )
+				printRangeDump(bus, 0x0000, 0xffff);
 			if( !requireHaltPcs.isEmpty() ) {
 				int finalPc = haltedAtAddress[0] ? (haltedAtPc[0]&0xffff) : (cpu.getRegister().getPC()&0xffff);
 				if( !requireHaltPcs.contains(finalPc) ) {
@@ -691,6 +738,12 @@ public class Emulator8Coordinator {
 			System.out.println("Done");
 			if( printCpuStateAtExit )
 				printCpuState(maxCpuSteps, -1, false, -1, cpu);
+			if( dumpPageAddress!=null )
+				printPageDump(bus, dumpPageAddress);
+			if( dumpRangeStart>=0 )
+				printRangeDump(bus, dumpRangeStart, dumpRangeEnd);
+			if( dumpAll )
+				printRangeDump(bus, 0x0000, 0xffff);
 			if( printTextAtExit && bus instanceof MemoryBusIIe )
 				printTextScreen((MemoryBusIIe) bus, memory);
 	   	}
@@ -715,6 +768,35 @@ public class Emulator8Coordinator {
 			System.out.println(line.toString());
 		}
 		System.out.println("text_screen_end");
+	}
+
+	private static void printPageDump(MemoryBus8 bus, int address) {
+		int pageBase = address & 0xff00;
+		System.err.println("page_dump_begin base=$"+Cpu65c02.getHexString(pageBase, 4));
+		printRangeDump(bus, pageBase, pageBase+0xff);
+		System.err.println("page_dump_end");
+	}
+
+	private static void printRangeDump(MemoryBus8 bus, int startAddress, int endAddress) {
+		System.err.println("range_dump_begin start=$"+Cpu65c02.getHexString(startAddress, 4)+
+				" end=$"+Cpu65c02.getHexString(endAddress, 4));
+		for( int rowBase = (startAddress & 0xfff0); rowBase<=endAddress; rowBase += 16 ) {
+			StringBuilder line = new StringBuilder();
+			line.append(Cpu65c02.getHexString(rowBase & 0xffff, 4)).append(":");
+			for( int col = 0; col<16; col++ ) {
+				int addr = (rowBase+col) & 0xffff;
+				if( addr<startAddress || addr>endAddress ) {
+					line.append(" ..");
+					continue;
+				}
+				int value = bus instanceof MemoryBusIIe
+					? ((MemoryBusIIe) bus).peekByteNoSideEffects(addr)
+					: bus.getByte(addr);
+				line.append(" ").append(Cpu65c02.getHexString(value, 2));
+			}
+			System.err.println(line);
+		}
+		System.err.println("range_dump_end");
 	}
 
 	private static void printCpuState(long maxCpuSteps, long stoppedAfterSteps, boolean haltedAtAddress, int haltedAtPc, Cpu65c02 cpu) {

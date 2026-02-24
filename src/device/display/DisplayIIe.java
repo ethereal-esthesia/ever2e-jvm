@@ -2525,6 +2525,11 @@ public class DisplayIIe extends DisplayWindow implements VideoSignalSource {
 		return tracer.isVbl();
 	}
 
+	@Override
+	public int getVScan() {
+		return tracer.getVScan();
+	}
+
 	public void setMemoryBus( MemoryBusIIe memoryBus ) {
 		if( memoryBus==null ) {
 			memory = new Memory8(0x10000);
