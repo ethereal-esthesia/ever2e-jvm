@@ -72,6 +72,12 @@ public class HeadlessVideoProbe extends HardwareManager implements VideoSignalSo
 
 	@Override
 	public int getLastRead() {
+		// Keep soft-switch display mode/page changes visible to floating-bus reads
+		// immediately, even between probe cycles.
+		if( lastSwitchIteration!=memoryBus.getSwitchIteration() ) {
+			lastSwitchIteration = memoryBus.getSwitchIteration();
+			evaluateSwitchChange();
+		}
 		return memory.getByte(tracer.getAddress());
 	}
 

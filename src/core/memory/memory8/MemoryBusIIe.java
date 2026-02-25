@@ -171,8 +171,11 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
+			// Match Apple IIe/MAME behavior for read/write soft-switches:
+			// floating-bus value is sampled before the switch side-effect is applied.
+			int value = super.readMem(address);
 			writeMem(address, 0x00);
-			return super.readMem(address);
+			return value;
 		}
 
 	}
@@ -185,8 +188,11 @@ public class MemoryBusIIe extends MemoryBus8 {
 
 		@Override
 		public int readMem( int address ) {
+			// Match Apple IIe/MAME behavior for read/write soft-switches:
+			// floating-bus value is sampled before the switch side-effect is applied.
+			int value = super.readMem(address);
 			writeMem(address, 0x00);
-			return super.readMem(address);
+			return value;
 		}
 
 	}

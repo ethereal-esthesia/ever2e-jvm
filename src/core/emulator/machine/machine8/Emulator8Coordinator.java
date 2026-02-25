@@ -183,6 +183,11 @@ public class Emulator8Coordinator {
 			String sdlFullscreenMode = "exclusive";
 			boolean sdlImeUiSelf = false;
 		Integer resetPFlagValue = null;
+		Integer resetAValue = null;
+		Integer resetXValue = null;
+		Integer resetYValue = null;
+		Integer resetSValue = null;
+		boolean floatingBusOpcodeTiming = false;
 		Integer dumpPageAddress = null;
 		int dumpRangeStart = -1;
 		int dumpRangeEnd = -1;
@@ -289,6 +294,41 @@ public class Emulator8Coordinator {
 			}
 			else if( arg.startsWith("--reset-pflag-value=") ) {
 				resetPFlagValue = parseByteArg(arg.substring("--reset-pflag-value=".length()), "--reset-pflag-value") | 0x30;
+			}
+			else if( "--reset-a-value".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --reset-a-value");
+				resetAValue = parseByteArg(argList[++i], "--reset-a-value");
+			}
+			else if( arg.startsWith("--reset-a-value=") ) {
+				resetAValue = parseByteArg(arg.substring("--reset-a-value=".length()), "--reset-a-value");
+			}
+			else if( "--reset-x-value".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --reset-x-value");
+				resetXValue = parseByteArg(argList[++i], "--reset-x-value");
+			}
+			else if( arg.startsWith("--reset-x-value=") ) {
+				resetXValue = parseByteArg(arg.substring("--reset-x-value=".length()), "--reset-x-value");
+			}
+			else if( "--reset-y-value".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --reset-y-value");
+				resetYValue = parseByteArg(argList[++i], "--reset-y-value");
+			}
+			else if( arg.startsWith("--reset-y-value=") ) {
+				resetYValue = parseByteArg(arg.substring("--reset-y-value=".length()), "--reset-y-value");
+			}
+			else if( "--reset-s-value".equals(arg) ) {
+				if( i+1>=argList.length )
+					throw new IllegalArgumentException("Missing value for --reset-s-value");
+				resetSValue = parseByteArg(argList[++i], "--reset-s-value");
+			}
+			else if( arg.startsWith("--reset-s-value=") ) {
+				resetSValue = parseByteArg(arg.substring("--reset-s-value=".length()), "--reset-s-value");
+			}
+			else if( "--floating-bus-opcode-timing".equals(arg) ) {
+				floatingBusOpcodeTiming = true;
 			}
 			else if( "--dump-page".equals(arg) ) {
 				if( i+1>=argList.length )
@@ -536,6 +576,14 @@ public class Emulator8Coordinator {
 		System.out.println("");
 	   	if( resetPFlagValue!=null )
 	   		cpu.setResetPOverride(resetPFlagValue);
+	   	if( resetAValue!=null )
+	   		cpu.setResetAOverride(resetAValue);
+	   	if( resetXValue!=null )
+	   		cpu.setResetXOverride(resetXValue);
+	   	if( resetYValue!=null )
+	   		cpu.setResetYOverride(resetYValue);
+	   	if( resetSValue!=null )
+	   		cpu.setResetSOverride(resetSValue);
 	   	if( maxCpuSteps>=0 ) {
 	   		PrintWriter traceWriter = null;
 	   		if( traceFile!=null ) {
@@ -547,11 +595,13 @@ public class Emulator8Coordinator {
 	   		final Integer finalTraceStartPc = traceStartPc;
 	   		final Set<Integer> finalHaltExecutions = haltExecutions;
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
+	   		final boolean finalFloatingBusOpcodeTiming = floatingBusOpcodeTiming;
 	   		final KeyboardIIe finalKeyboard = keyboard;
 	   		final boolean[] haltedAtAddress = new boolean[] { false };
 	   		final int[] haltedAtPc = new int[] { -1 };
 	   		final boolean[] traceStarted = new boolean[] { finalTraceStartPc==null };
 	   		final long[] traceStepBase = new long[] { -1L };
+	   		final int[] pendingPreAdvancedCycles = new int[] { 0 };
 	   		final String finalPasteFile = pasteFile;
 	   		final String finalPasteText = pasteText;
 	   		final boolean[] basicQueued = new boolean[] { finalPasteText==null };
@@ -561,11 +611,25 @@ public class Emulator8Coordinator {
 	   				queueBasicText(finalKeyboard, finalPasteFile, finalPasteText);
 	   				basicQueued[0] = true;
 	   			}
+	   			if( finalHeadlessProbe!=null && preCycle && manager==cpu && finalFloatingBusOpcodeTiming ) {
+	   				int effectiveAddr = estimatePendingReadAddress(cpu, bus);
+	   				if( effectiveAddr>=0xc000 && effectiveAddr<=0xc0ff ) {
+	   					int preCycles = Math.max(0, cpu.getPendingOpcode().getCycleTime()-1);
+	   					if( preCycles>0 ) {
+	   						finalHeadlessProbe.advanceCycles(preCycles);
+	   						pendingPreAdvancedCycles[0] = preCycles;
+	   					}
+	   				}
+	   			}
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
 	   				Opcode executed = cpu.getOpcode();
 	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
+	   				int preAdvancedCycles = pendingPreAdvancedCycles[0];
+	   				pendingPreAdvancedCycles[0] = 0;
 	   				if( !"RES".equals(mnemonic) ) {
-	   					int monitorCycles = cpu.getLastInstructionCycleCount();
+	   					int monitorCycles = cpu.getLastInstructionCycleCount()-preAdvancedCycles;
+	   					if( monitorCycles<0 )
+	   						monitorCycles = 0;
 	   					if( finalDebugLogging ) {
 	   						long monitorStartNs = System.nanoTime();
 	   						finalHeadlessProbe.advanceCycles(monitorCycles);
@@ -714,21 +778,37 @@ public class Emulator8Coordinator {
 	   	}
 	   	else {
 	   		final HeadlessVideoProbe finalHeadlessProbe = headlessProbe;
+	   		final boolean finalFloatingBusOpcodeTiming = floatingBusOpcodeTiming;
 	   		final KeyboardIIe finalKeyboard = keyboard;
 	   		final String finalPasteFile = pasteFile;
 	   		final String finalPasteText = pasteText;
 	   		final boolean[] basicQueued = new boolean[] { finalPasteText==null };
 	   		final boolean finalDebugLogging = debugLogging;
+	   		final int[] pendingPreAdvancedCycles = new int[] { 0 };
 	   		emulator.startWithStepPhases(-1, cpu, (step, manager, preCycle) -> {
 	   			if( !basicQueued[0] && manager==cpu && preCycle ) {
 	   				queueBasicText(finalKeyboard, finalPasteFile, finalPasteText);
 	   				basicQueued[0] = true;
 	   			}
+	   			if( finalHeadlessProbe!=null && preCycle && manager==cpu && finalFloatingBusOpcodeTiming ) {
+	   				int effectiveAddr = estimatePendingReadAddress(cpu, bus);
+	   				if( effectiveAddr>=0xc000 && effectiveAddr<=0xc0ff ) {
+	   					int preCycles = Math.max(0, cpu.getPendingOpcode().getCycleTime()-1);
+	   					if( preCycles>0 ) {
+	   						finalHeadlessProbe.advanceCycles(preCycles);
+	   						pendingPreAdvancedCycles[0] = preCycles;
+	   					}
+	   				}
+	   			}
 	   			if( finalHeadlessProbe!=null && !preCycle && manager==cpu ) {
 	   				Opcode executed = cpu.getOpcode();
 	   				String mnemonic = executed.getMnemonic()==null ? "" : executed.getMnemonic().toString().trim();
+	   				int preAdvancedCycles = pendingPreAdvancedCycles[0];
+	   				pendingPreAdvancedCycles[0] = 0;
 	   				if( !"RES".equals(mnemonic) ) {
-	   					int monitorCycles = cpu.getLastInstructionCycleCount();
+	   					int monitorCycles = cpu.getLastInstructionCycleCount()-preAdvancedCycles;
+	   					if( monitorCycles<0 )
+	   						monitorCycles = 0;
 	   					if( finalDebugLogging ) {
 	   						long monitorStartNs = System.nanoTime();
 	   						finalHeadlessProbe.advanceCycles(monitorCycles);
@@ -760,6 +840,66 @@ public class Emulator8Coordinator {
 		if( "sdl".equalsIgnoreCase(windowBackend) )
 			return Boolean.parseBoolean(System.getProperty("java.awt.headless", "false"));
 		return GraphicsEnvironment.isHeadless();
+	}
+
+	private static boolean isMemoryReadMnemonic(Cpu65c02.OpcodeMnemonic mnemonic) {
+		if( mnemonic==null )
+			return false;
+		switch( mnemonic ) {
+			case ADC:
+			case AND:
+			case BIT:
+			case CMP:
+			case CPX:
+			case CPY:
+			case EOR:
+			case LDA:
+			case LDX:
+			case LDY:
+			case ORA:
+			case SBC:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	private static int estimatePendingReadAddress(Cpu65c02 cpu, MemoryBus8 bus) {
+		Opcode opcode = cpu.getPendingOpcode();
+		if( opcode==null || !isMemoryReadMnemonic(opcode.getMnemonic()) )
+			return -1;
+		int pc = cpu.getPendingPC() & 0xffff;
+		int x = cpu.getRegister().getX() & 0xff;
+		int y = cpu.getRegister().getY() & 0xff;
+		switch( opcode.getAddressMode() ) {
+			case ABS:
+				return bus.getWord16LittleEndian((pc+1)&0xffff) & 0xffff;
+			case ABS_X:
+				return (bus.getWord16LittleEndian((pc+1)&0xffff) + x) & 0xffff;
+			case ABS_Y:
+				return (bus.getWord16LittleEndian((pc+1)&0xffff) + y) & 0xffff;
+			case ZPG:
+				return bus.getByte((pc+1)&0xffff) & 0xff;
+			case ZPG_X:
+				return (bus.getByte((pc+1)&0xffff) + x) & 0xff;
+			case ZPG_Y:
+				return (bus.getByte((pc+1)&0xffff) + y) & 0xff;
+			case ZPG_IND: {
+				int zp = bus.getByte((pc+1)&0xffff) & 0xff;
+				return bus.getWord16LittleEndian(zp, 0xff) & 0xffff;
+			}
+			case IND_X: {
+				int zp = (bus.getByte((pc+1)&0xffff) + x) & 0xff;
+				return bus.getWord16LittleEndian(zp, 0xff) & 0xffff;
+			}
+			case IND_Y: {
+				int zp = bus.getByte((pc+1)&0xffff) & 0xff;
+				int base = bus.getWord16LittleEndian(zp, 0xff) & 0xffff;
+				return (base + y) & 0xffff;
+			}
+			default:
+				return -1;
+		}
 	}
 
 	private static void printTextScreen(MemoryBusIIe memoryBus, Memory8 memory) {

@@ -44,6 +44,10 @@ public class Cpu65c02 extends HardwareManager {
 	private volatile Opcode interruptPending;
 	private boolean isHalted;
 	private Integer resetPOverride;
+	private Integer resetAOverride;
+	private Integer resetXOverride;
+	private Integer resetYOverride;
+	private Integer resetSOverride;
 	
 	private static final int STACK_PAGE = 0x100;
 	
@@ -433,6 +437,10 @@ public class Cpu65c02 extends HardwareManager {
 		newOpcode = INTERRUPT_RES;
 		cycleCount = INTERRUPT_RES.getCycleTime();
 		resetPOverride = null;
+		resetAOverride = null;
+		resetXOverride = null;
+		resetYOverride = null;
+		resetSOverride = null;
 		
 		memory.coldReset();
 		
@@ -1131,6 +1139,18 @@ public class Cpu65c02 extends HardwareManager {
 				reg.setS(reg.getS()-3);
 				reg.setP(StatusRegister.I);    // Set interrupt disable
 				reg.clearP(StatusRegister.D);  // Clear decimal flag
+				if( resetAOverride!=null ) {
+					reg.setA(resetAOverride);
+				}
+				if( resetXOverride!=null ) {
+					reg.setX(resetXOverride);
+				}
+				if( resetYOverride!=null ) {
+					reg.setY(resetYOverride);
+				}
+				if( resetSOverride!=null ) {
+					reg.setS(resetSOverride);
+				}
 				if( resetPOverride!=null ) {
 					reg.setP(resetPOverride);
 				}
@@ -1345,6 +1365,22 @@ public class Cpu65c02 extends HardwareManager {
 
 	public void setResetPOverride(Integer p) {
 		resetPOverride = p==null ? null : ((p|0x30)&0xff);
+	}
+
+	public void setResetAOverride(Integer a) {
+		resetAOverride = a==null ? null : (a&0xff);
+	}
+
+	public void setResetXOverride(Integer x) {
+		resetXOverride = x==null ? null : (x&0xff);
+	}
+
+	public void setResetYOverride(Integer y) {
+		resetYOverride = y==null ? null : (y&0xff);
+	}
+
+	public void setResetSOverride(Integer s) {
+		resetSOverride = s==null ? null : (s&0xff);
 	}
 
 	public int getLastCycleCount() {
