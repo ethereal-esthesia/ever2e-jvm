@@ -576,7 +576,7 @@ public class Emulator8Coordinator {
 	   					}
 	   				}
 	   			}
-	   			if( finalTraceWriter==null && !(preCycle && !finalHaltExecutions.isEmpty()) )
+	   			if( finalTraceWriter==null && finalHaltExecutions.isEmpty() )
 	   				return true;
 	   			if( !traceStarted[0] && preCycle && finalTraceStartPc!=null &&
 	   					(cpu.getPendingPC()&0xffff)==(finalTraceStartPc&0xffff) ) {
@@ -586,11 +586,12 @@ public class Emulator8Coordinator {
 	   			if( traceStarted[0] && traceStepBase[0]<0 )
 	   				traceStepBase[0] = step;
 	   			int pendingPc = cpu.getPendingPC()&0xffff;
-	   			boolean hitStopAddress = preCycle && !finalHaltExecutions.isEmpty() &&
-	   					finalHaltExecutions.contains(pendingPc);
+	   			int currentPc = cpu.getRegister().getPC()&0xffff;
+	   			boolean hitStopAddress = manager==cpu && !finalHaltExecutions.isEmpty() &&
+	   					(preCycle ? finalHaltExecutions.contains(pendingPc) : finalHaltExecutions.contains(currentPc));
 	   			if( hitStopAddress && !"pre".equals(finalTracePhase) ) {
 	   				haltedAtAddress[0] = true;
-	   				haltedAtPc[0] = pendingPc;
+	   				haltedAtPc[0] = preCycle ? pendingPc : currentPc;
 	   				return false;
 	   			}
 	   			if( hitStopAddress && finalTraceWriter!=null && "pre".equals(finalTracePhase) ) {
@@ -613,6 +614,11 @@ public class Emulator8Coordinator {
 	   						opcode.getMnemonic() + "," +
 	   						opcode.getAddressMode()
 	   				);
+	   				haltedAtAddress[0] = true;
+	   				haltedAtPc[0] = pendingPc;
+	   				return false;
+	   			}
+	   			if( hitStopAddress && finalTraceWriter==null && "pre".equals(finalTracePhase) ) {
 	   				haltedAtAddress[0] = true;
 	   				haltedAtPc[0] = pendingPc;
 	   				return false;
