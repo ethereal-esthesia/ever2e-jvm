@@ -1,9 +1,10 @@
 package test.cpu;
 
-import core.cpu.cpu8.Cpu65c02;
-import core.cpu.cpu8.Cpu65c02Microcode;
-import core.cpu.cpu8.Opcode;
 import org.junit.Test;
+
+import core.cpu.cpu8.Cpu65c02Microcode;
+import core.cpu.cpu8.Cpu65c02Microcode.MicroOp;
+import core.cpu.cpu8.Cpu65c02Microcode.OpcodeMicroInstr;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -11,55 +12,63 @@ import static org.junit.Assert.assertTrue;
 public class Cpu65c02MicrocodeTest {
 
 	@Test
-	public void absReadCycleOffset() {
-		Opcode ldaAbs = Cpu65c02.OPCODE[0xAD];
-		assertEquals(3, Cpu65c02Microcode.operandReadCycleOffset(ldaAbs, false));
-		assertEquals(3, Cpu65c02Microcode.operandReadCycleOffset(ldaAbs, true));
-	}
-
-	@Test
-	public void absIndexedReadCycleOffset() {
-		Opcode ldaAbsX = Cpu65c02.OPCODE[0xBD];
-		assertEquals(3, Cpu65c02Microcode.operandReadCycleOffset(ldaAbsX, false));
-		assertEquals(4, Cpu65c02Microcode.operandReadCycleOffset(ldaAbsX, true));
-
-		Opcode ldaAbsY = Cpu65c02.OPCODE[0xB9];
-		assertEquals(3, Cpu65c02Microcode.operandReadCycleOffset(ldaAbsY, false));
-		assertEquals(4, Cpu65c02Microcode.operandReadCycleOffset(ldaAbsY, true));
-	}
-
-	@Test
-	public void indirectReadCycleOffset() {
-		Opcode ldaIndX = Cpu65c02.OPCODE[0xA1];
-		assertEquals(5, Cpu65c02Microcode.operandReadCycleOffset(ldaIndX, false));
-		assertEquals(5, Cpu65c02Microcode.operandReadCycleOffset(ldaIndX, true));
-
-		Opcode ldaIndY = Cpu65c02.OPCODE[0xB1];
-		assertEquals(4, Cpu65c02Microcode.operandReadCycleOffset(ldaIndY, false));
-		assertEquals(5, Cpu65c02Microcode.operandReadCycleOffset(ldaIndY, true));
-	}
-
-	@Test
-	public void readMnemonicsClassification() {
-		assertTrue(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OPCODE[0xA9])); // LDA #imm
-		assertTrue(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OPCODE[0x2C])); // BIT abs
-		assertEquals(Cpu65c02Microcode.MicroOp.M_NONE, Cpu65c02Microcode.operandReadMicroOp(Cpu65c02.OPCODE[0x9D])); // STA abs,X
-		assertEquals(Cpu65c02Microcode.MicroOp.M_NONE, Cpu65c02Microcode.operandReadMicroOp(Cpu65c02.OPCODE[0xD0])); // BNE rel
-	}
-
-	@Test
 	public void microOpNamesUseMPrefix() {
-		for( Cpu65c02Microcode.MicroOp op : Cpu65c02Microcode.MicroOp.values() )
+		for( MicroOp op : MicroOp.values() )
 			assertTrue(op.name().startsWith("M_"));
+	}
+
+	@Test
+	public void ldaAbsoluteCycleScript() {
+		OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(0xAD); // LDA abs
+		assertEquals(MicroOp.M_FETCH_OPCODE, instr.getCycleScript(false)[0]);
+		assertEquals(MicroOp.M_FETCH_OPERAND_LO, instr.getCycleScript(false)[1]);
+		assertEquals(MicroOp.M_FETCH_OPERAND_HI, instr.getCycleScript(false)[2]);
+		assertEquals(MicroOp.M_READ_EA, instr.getCycleScript(false)[3]);
+		assertEquals(3, instr.getOperandReadCycleOffset(false));
+	}
+
+	@Test
+	public void ldaAbsoluteXCrossAddsDummyRead() {
+		OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(0xBD); // LDA abs,X
+		MicroOp[] noCross = instr.getCycleScript(false);
+		MicroOp[] cross = instr.getCycleScript(true);
+		assertEquals(4, noCross.length);
+		assertEquals(5, cross.length);
+		assertEquals(MicroOp.M_READ_EA, noCross[3]);
+		assertEquals(MicroOp.M_READ_DUMMY, cross[3]);
+		assertEquals(MicroOp.M_READ_EA, cross[4]);
+		assertEquals(3, instr.getOperandReadCycleOffset(false));
+		assertEquals(4, instr.getOperandReadCycleOffset(true));
+	}
+
+	@Test
+	public void staAbsoluteHasWriteCycle() {
+		OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(0x8D); // STA abs
+		MicroOp[] script = instr.getCycleScript(false);
+		assertEquals(MicroOp.M_FETCH_OPCODE, script[0]);
+		assertEquals(MicroOp.M_FETCH_OPERAND_LO, script[1]);
+		assertEquals(MicroOp.M_FETCH_OPERAND_HI, script[2]);
+		assertEquals(MicroOp.M_WRITE_EA, script[3]);
+		assertEquals(-1, instr.getOperandReadCycleOffset(false));
+	}
+
+	@Test
+	public void incZeroPageIsReadModifyWrite() {
+		OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(0xE6); // INC zpg
+		MicroOp[] script = instr.getCycleScript(false);
+		assertEquals(MicroOp.M_READ_EA, script[2]);
+		assertEquals(MicroOp.M_WRITE_EA_DUMMY, script[3]);
+		assertEquals(MicroOp.M_WRITE_EA, script[4]);
 	}
 
 	@Test
 	public void everyOpcodeHasMicroInstrEntry() {
 		for( int op = 0; op<256; op++ ) {
-			Cpu65c02Microcode.OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(op);
+			OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(op);
 			assertTrue(instr!=null);
 			assertEquals(op, instr.getOpcodeByte());
-			assertTrue(instr.getMicroOp()!=null);
+			assertTrue(instr.getCycleScript(false).length>=1);
+			assertEquals(MicroOp.M_FETCH_OPCODE, instr.getCycleScript(false)[0]);
 		}
 	}
 }
