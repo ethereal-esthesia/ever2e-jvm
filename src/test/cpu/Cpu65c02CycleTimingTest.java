@@ -1,6 +1,7 @@
 package test.cpu;
 
 import core.cpu.cpu8.Cpu65c02;
+import core.cpu.cpu8.Cpu65c02CycleEstimator;
 import core.cpu.cpu8.Register;
 import core.exception.HardwareException;
 import core.memory.memory8.Memory8;
@@ -54,6 +55,10 @@ public class Cpu65c02CycleTimingTest {
         }
     }
 
+    private int estimateCycles(CpuEnv env, int opcodeByte) {
+        return Cpu65c02CycleEstimator.predictInstructionCycles(env.bus, env.reg, Cpu65c02.OPCODE[opcodeByte & 0xFF], PROG_PC);
+    }
+
     @Test
     public void ldaAbsXAddsCycleOnPageCrossOnly() throws Exception {
         CpuEnv env = createEnv();
@@ -62,7 +67,7 @@ public class Cpu65c02CycleTimingTest {
         env.reg.setX(0x01);
         env.bus.setByte(0x20FF, 0x11);
         runInstruction(env);
-        assertEquals(4, env.cpu.getLastInstructionCycleCount());
+        assertEquals(estimateCycles(env, 0xBD), env.cpu.getLastInstructionCycleCount());
 
         env = createEnv();
         loadProgram(env, 0xBD, 0xFF, 0x20); // LDA $20FF,X
@@ -70,7 +75,7 @@ public class Cpu65c02CycleTimingTest {
         env.reg.setX(0x01);
         env.bus.setByte(0x2100, 0x22);
         runInstruction(env);
-        assertEquals(5, env.cpu.getLastInstructionCycleCount());
+        assertEquals(estimateCycles(env, 0xBD), env.cpu.getLastInstructionCycleCount());
     }
 
     @Test
@@ -81,7 +86,7 @@ public class Cpu65c02CycleTimingTest {
         env.reg.setY(0x01);
         env.bus.setByte(0x20FF, 0x33);
         runInstruction(env);
-        assertEquals(4, env.cpu.getLastInstructionCycleCount());
+        assertEquals(estimateCycles(env, 0xB9), env.cpu.getLastInstructionCycleCount());
 
         env = createEnv();
         loadProgram(env, 0xB9, 0xFF, 0x20); // LDA $20FF,Y
@@ -89,7 +94,7 @@ public class Cpu65c02CycleTimingTest {
         env.reg.setY(0x01);
         env.bus.setByte(0x2100, 0x44);
         runInstruction(env);
-        assertEquals(5, env.cpu.getLastInstructionCycleCount());
+        assertEquals(estimateCycles(env, 0xB9), env.cpu.getLastInstructionCycleCount());
     }
 
     @Test
@@ -102,7 +107,7 @@ public class Cpu65c02CycleTimingTest {
         env.bus.setByte(0x0011, 0x20);
         env.bus.setByte(0x20FF, 0x55);
         runInstruction(env);
-        assertEquals(5, env.cpu.getLastInstructionCycleCount());
+        assertEquals(estimateCycles(env, 0xB1), env.cpu.getLastInstructionCycleCount());
 
         env = createEnv();
         loadProgram(env, 0xB1, 0x10); // LDA ($10),Y
@@ -112,7 +117,7 @@ public class Cpu65c02CycleTimingTest {
         env.bus.setByte(0x0011, 0x20);
         env.bus.setByte(0x2100, 0x66);
         runInstruction(env);
-        assertEquals(6, env.cpu.getLastInstructionCycleCount());
+        assertEquals(estimateCycles(env, 0xB1), env.cpu.getLastInstructionCycleCount());
     }
 
     @Test
@@ -135,7 +140,7 @@ public class Cpu65c02CycleTimingTest {
         runInstruction(env);
         env.reg.setA(0xA5);
         env.reg.setX(0x01);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(5, env.cpu.getLastInstructionCycleCount());
         assertEquals(0xA5, env.bus.getByte(0x2100));
     }

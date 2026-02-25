@@ -172,7 +172,7 @@ public class EmulatorSchedulerContractTest {
         // Execute RES; queue should now represent LDA micro-events.
         env.emulator.startWithStepPhases(1, env.cpu, (step, manager, preCycle) -> true);
         assertEquals(2, env.cpu.getPendingExecutionEventCount());
-        assertTrue(env.cpu.hasPendingInstructionNonFinalEvent());
+        assertTrue(env.cpu.hasPendingInFlightMicroEvent());
 
         // Execute one pending cycle, leaving final instruction-end event.
         env.emulator.startWithStepPhases(2, env.cpu, (step, manager, preCycle) -> true);

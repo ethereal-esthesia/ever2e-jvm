@@ -45,6 +45,7 @@ public class Cpu65c02 extends HardwareManager {
 	private int lastInstructionCycleCount;
 	private int pendingInstructionCyclesConsumed;
 	private final Deque<CpuExecutionEvent> executionQueue = new ArrayDeque<CpuExecutionEvent>();
+	private final CpuExecutionPlanner executionPlanner;
 
 	private volatile Opcode interruptPending;
 	private boolean isHalted;
@@ -454,6 +455,7 @@ public class Cpu65c02 extends HardwareManager {
 	public Cpu65c02( MemoryBusIIe memory, long unitsPerCycle ) {
 		super(unitsPerCycle);
 		this.memory = memory;
+		this.executionPlanner = new CpuExecutionPlanner(memory, reg);
 	}
 
 	@Override
@@ -475,17 +477,19 @@ public class Cpu65c02 extends HardwareManager {
 		// First instruction is a reset interrupt
 		opcode = null;
 		interruptPending = null;
-			newOpcode = INTERRUPT_RES;
-			cycleCount = INTERRUPT_RES.getCycleTime();
-			resetPOverride = null;
+		newOpcode = INTERRUPT_RES;
+		cycleCount = INTERRUPT_RES.getCycleTime();
+		resetPOverride = null;
 		resetAOverride = null;
 		resetXOverride = null;
-			resetYOverride = null;
-			resetSOverride = null;
-			executionQueue.clear();
-			enqueueNextInstructionEvents();
-			
-			memory.coldReset();
+		resetYOverride = null;
+		resetSOverride = null;
+		pendingInstructionCyclesConsumed = 0;
+		executionQueue.clear();
+		enqueueNextInstructionEvents();
+		verifyExecutionQueueInvariant("cold_reset");
+
+		memory.coldReset();
 		
 	}
 
@@ -497,22 +501,18 @@ public class Cpu65c02 extends HardwareManager {
 			enqueueNextInstructionEvents();
 		CpuExecutionEvent event = executionQueue.removeFirst();
 		event.action.run();
+		verifyExecutionQueueInvariant("post_cycle");
 	}
 
 	private void enqueueNextInstructionEvents() {
 		Opcode scheduledOpcode = newOpcode;
 		int scheduledPc = newPc & 0xffff;
-		if( shouldUseMicroQueueForOpcode(scheduledOpcode) ) {
-			int totalCycles = predictInstructionCycles(scheduledOpcode, scheduledPc);
-			int pendingCycles = Math.max(0, totalCycles-1);
-			pendingInstructionCyclesConsumed = pendingCycles;
-			for( int i = 0; i<pendingCycles; i++ )
-				enqueueExecutionEvent(false, this::runPendingInstructionCycle);
-			enqueueExecutionEvent(true, this::executeInstructionAtomicCore);
-			return;
-		}
-		pendingInstructionCyclesConsumed = 0;
+		CpuExecutionPlanner.Plan plan = executionPlanner.buildPlan(scheduledOpcode, scheduledPc);
+		pendingInstructionCyclesConsumed = plan.pendingCycles;
+		for( int i = 0; i<plan.pendingCycles; i++ )
+			enqueueExecutionEvent(false, this::runPendingInstructionCycle);
 		enqueueExecutionEvent(true, this::executeInstructionAtomicCore);
+		verifyExecutionQueueInvariant("enqueue_instruction");
 	}
 
 	private void enqueueExecutionEvent(boolean instructionEnd, CpuExecutionAction action) {
@@ -523,42 +523,21 @@ public class Cpu65c02 extends HardwareManager {
 		incSleepCycles(1);
 	}
 
-	private boolean shouldUseMicroQueueForOpcode(Opcode op) {
-		return op!=null && op.getMachineCode()!=null && op.getMnemonic()==OpcodeMnemonic.LDA;
-	}
-
-	private int predictInstructionCycles(Opcode op, int pc) {
-		int cycles = op.getCycleTime();
-		if( op.getMnemonic()!=OpcodeMnemonic.LDA )
-			return cycles;
-		int operandCounter = (pc+1)&0xffff;
-		switch( op.getAddressMode() ) {
-			case ABS_X: {
-				int base = memory.getWord16LittleEndian(operandCounter);
-				int eff = (base + reg.getX()) & 0xffff;
-				if( (base>>8)!=(eff>>8) )
-					cycles++;
-				break;
+	private void verifyExecutionQueueInvariant(String stage) {
+		if( executionQueue.isEmpty() )
+			throw new IllegalStateException("Execution queue invariant failed at "+stage+": queue must not be empty");
+		int instructionEndCount = 0;
+		int index = 0;
+		for( CpuExecutionEvent event : executionQueue ) {
+			if( event.instructionEnd ) {
+				instructionEndCount++;
+				if( index!=executionQueue.size()-1 )
+					throw new IllegalStateException("Execution queue invariant failed at "+stage+": instructionEnd must be tail event");
 			}
-			case ABS_Y: {
-				int base = memory.getWord16LittleEndian(operandCounter);
-				int eff = (base + reg.getY()) & 0xffff;
-				if( (base>>8)!=(eff>>8) )
-					cycles++;
-				break;
-			}
-			case IND_Y: {
-				int ptr = memory.getByte(operandCounter);
-				int base = memory.getWord16LittleEndian(ptr, 0xff);
-				int eff = (base + reg.getY()) & 0xffff;
-				if( (base>>8)!=(eff>>8) )
-					cycles++;
-				break;
-			}
-			default:
-				break;
+			index++;
 		}
-		return cycles;
+		if( instructionEndCount!=1 )
+			throw new IllegalStateException("Execution queue invariant failed at "+stage+": expected exactly one instructionEnd event");
 	}
 
 	private void executeInstructionAtomicCore() throws HardwareException {
@@ -1510,7 +1489,7 @@ public class Cpu65c02 extends HardwareManager {
 		return event!=null && event.instructionEnd;
 	}
 
-	public boolean hasPendingInstructionNonFinalEvent() {
+	public boolean hasPendingInFlightMicroEvent() {
 		CpuExecutionEvent event = executionQueue.peekFirst();
 		return event!=null && !event.instructionEnd;
 	}
