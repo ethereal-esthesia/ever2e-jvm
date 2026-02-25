@@ -26,14 +26,26 @@ public enum Cpu65c02Opcode {
 	LDA_IND_Y(0xB1, MicroCycleProgram.readSplit(
 			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA),
 			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
-	LDA_IND(0xB2, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA)));
+	LDA_IND(0xB2, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA))),
+
+	STA_ZPG(0x85, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_WRITE_EA))),
+	STA_ZPG_X(0x95, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA))),
+	STA_ABS(0x8D, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_WRITE_EA))),
+	STA_ABS_X(0x9D, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA))),
+	STA_ABS_Y(0x99, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA))),
+	STA_IND_X(0x81, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_WRITE_EA))),
+	STA_IND_Y(0x91, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA))),
+	STA_IND(0x92, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_WRITE_EA)));
 
 	private final int opcodeByte;
 	private final MicroCycleProgram microcode;
 	private static final EnumMap<Cpu65c02Opcode, Integer> OPCODE_BYTES = buildOpcodeByteMap();
 	private static final EnumMap<Cpu65c02Opcode, MicroCycleProgram> MICROCODE_PROGRAMS = buildMicrocodeProgramMap();
 	private static final Cpu65c02Opcode[] BYTE_TO_ENUM = buildByteToEnumMap();
-	private static final EnumSet<Cpu65c02Opcode> LDA_FAMILY = EnumSet.allOf(Cpu65c02Opcode.class);
+	private static final EnumSet<Cpu65c02Opcode> LDA_FAMILY = EnumSet.of(
+			LDA_IMM, LDA_ZPG, LDA_ZPG_X, LDA_ABS, LDA_ABS_X, LDA_ABS_Y, LDA_IND_X, LDA_IND_Y, LDA_IND);
+	private static final EnumSet<Cpu65c02Opcode> STA_FAMILY = EnumSet.of(
+			STA_ZPG, STA_ZPG_X, STA_ABS, STA_ABS_X, STA_ABS_Y, STA_IND_X, STA_IND_Y, STA_IND);
 
 	Cpu65c02Opcode(int opcodeByte, MicroCycleProgram microcode) {
 		this.opcodeByte = opcodeByte & 0xff;
@@ -60,8 +72,24 @@ public enum Cpu65c02Opcode {
 		return BYTE_TO_ENUM[opcodeByte & 0xff];
 	}
 
+	public static EnumSet<Cpu65c02Opcode> staFamily() {
+		return EnumSet.copyOf(STA_FAMILY);
+	}
+
+	public static int[] staOpcodeBytes() {
+		return buildStaOpcodeBytes();
+	}
+
 	private static int[] buildLdaOpcodeBytes() {
 		Cpu65c02Opcode[] ops = LDA_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildStaOpcodeBytes() {
+		Cpu65c02Opcode[] ops = STA_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
 		for( int i = 0; i<ops.length; i++ )
 			bytes[i] = ops[i].opcodeByte();
@@ -114,6 +142,10 @@ public enum Cpu65c02Opcode {
 
 		public static MicroCycleProgram readSplit(MicroOp[] noCrossScript, MicroOp[] crossScript) {
 			return new MicroCycleProgram(AccessType.AT_READ, noCrossScript, crossScript);
+		}
+
+		public static MicroCycleProgram writeShared(MicroOp... script) {
+			return new MicroCycleProgram(AccessType.AT_WRITE, script, script);
 		}
 
 		public AccessType accessType() {

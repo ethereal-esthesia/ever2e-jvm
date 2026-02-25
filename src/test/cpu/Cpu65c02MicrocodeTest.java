@@ -29,6 +29,16 @@ public class Cpu65c02MicrocodeTest {
 		}
 	}
 
+	private static final class StaExpect {
+		final int opcode;
+		final MicroOp[] script;
+
+		StaExpect(int opcode, MicroOp[] script) {
+			this.opcode = opcode;
+			this.script = script;
+		}
+	}
+
 	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
 			new LdaExpect(0xA9,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
@@ -66,6 +76,17 @@ public class Cpu65c02MicrocodeTest {
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
 					4, 4),
+		};
+
+	private static final StaExpect[] STA_EXPECTATIONS = new StaExpect[] {
+			new StaExpect(0x85, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_WRITE_EA }),
+			new StaExpect(0x95, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA }),
+			new StaExpect(0x8D, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_WRITE_EA }),
+			new StaExpect(0x9D, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA }),
+			new StaExpect(0x99, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA }),
+			new StaExpect(0x81, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_WRITE_EA }),
+			new StaExpect(0x91, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA }),
+			new StaExpect(0x92, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_WRITE_EA }),
 	};
 
 	@Test
@@ -101,9 +122,30 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void staOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] staOps = Cpu65c02Opcode.staFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] staBytes = Cpu65c02Opcode.staOpcodeBytes();
+		assertEquals(staOps.length, staBytes.length);
+		for( int i = 0; i<staOps.length; i++ )
+			assertEquals(staOps[i].opcodeByte(), staBytes[i]);
+	}
+
+	@Test
+	public void staOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode sta : Cpu65c02Opcode.staFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(sta.opcodeByte());
+			assertEquals(sta.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(sta.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(sta.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
 	public void opcodeByteRoundTripsToEnum() {
 		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
 			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
+		for( Cpu65c02Opcode sta : Cpu65c02Opcode.staFamily() )
+			assertEquals(sta, Cpu65c02Opcode.fromOpcodeByte(sta.opcodeByte()));
 	}
 
 	@Test
@@ -175,6 +217,19 @@ public class Cpu65c02MicrocodeTest {
 				assertEquals(expect.cross[i], entry.getExpectedMnemonicOrder(true)[i]);
 			assertEquals(expect.readOffsetNoCross, entry.getOperandReadCycleOffset(false));
 			assertEquals(expect.readOffsetCross, entry.getOperandReadCycleOffset(true));
+		}
+	}
+
+	@Test
+	public void allStaOpcodesHaveExpectedMicrocodeOrder() {
+		for( StaExpect expect : STA_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(true).length);
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(true));
+			assertEquals(-1, entry.getOperandReadCycleOffset(false));
 		}
 	}
 

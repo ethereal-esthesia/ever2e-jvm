@@ -124,11 +124,12 @@ public final class Cpu65c02Microcode {
 			Cpu65c02Opcode.MicroCycleProgram program = lda.microcode();
 			set(table, lda.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
 		}
+		for( Cpu65c02Opcode sta : Cpu65c02Opcode.staFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = sta.microcode();
+			set(table, sta.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
 
-		// Representative write / RMW entries used by tests.
-		set(table, 0x8D, AccessType.AT_WRITE,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_WRITE_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_WRITE_EA));
+		// Representative RMW entry used by tests.
 		set(table, 0xE6, AccessType.AT_RMW,
 				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA),
 				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA));
