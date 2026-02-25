@@ -120,7 +120,7 @@ public final class Cpu65c02Microcode {
 			table[i] = defaultInstr;
 
 		// LDA family from enum-owned microcode programs.
-		for( Cpu65c02Opcode lda : Cpu65c02Opcode.values() ) {
+		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() ) {
 			Cpu65c02Opcode.MicroCycleProgram program = lda.microcode();
 			set(table, lda.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
 		}

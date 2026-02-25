@@ -1,6 +1,8 @@
 package core.cpu.cpu8;
 
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.EnumSet;
 
 import core.cpu.cpu8.Cpu65c02Microcode.AccessType;
 import core.cpu.cpu8.Cpu65c02Microcode.MicroOp;
@@ -28,6 +30,10 @@ public enum Cpu65c02Opcode {
 
 	private final int opcodeByte;
 	private final MicroCycleProgram microcode;
+	private static final EnumMap<Cpu65c02Opcode, Integer> OPCODE_BYTES = buildOpcodeByteMap();
+	private static final EnumMap<Cpu65c02Opcode, MicroCycleProgram> MICROCODE_PROGRAMS = buildMicrocodeProgramMap();
+	private static final Cpu65c02Opcode[] BYTE_TO_ENUM = buildByteToEnumMap();
+	private static final EnumSet<Cpu65c02Opcode> LDA_FAMILY = EnumSet.allOf(Cpu65c02Opcode.class);
 
 	Cpu65c02Opcode(int opcodeByte, MicroCycleProgram microcode) {
 		this.opcodeByte = opcodeByte & 0xff;
@@ -35,23 +41,56 @@ public enum Cpu65c02Opcode {
 	}
 
 	public int opcodeByte() {
-		return opcodeByte;
+		return OPCODE_BYTES.get(this).intValue();
 	}
 
 	public MicroCycleProgram microcode() {
-		return microcode;
+		return MICROCODE_PROGRAMS.get(this);
 	}
 
 	public static int[] ldaOpcodeBytes() {
 		return buildLdaOpcodeBytes();
 	}
 
+	public static EnumSet<Cpu65c02Opcode> ldaFamily() {
+		return EnumSet.copyOf(LDA_FAMILY);
+	}
+
+	public static Cpu65c02Opcode fromOpcodeByte(int opcodeByte) {
+		return BYTE_TO_ENUM[opcodeByte & 0xff];
+	}
+
 	private static int[] buildLdaOpcodeBytes() {
-		Cpu65c02Opcode[] ops = Cpu65c02Opcode.values();
+		Cpu65c02Opcode[] ops = LDA_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
 		for( int i = 0; i<ops.length; i++ )
 			bytes[i] = ops[i].opcodeByte();
 		return bytes;
+	}
+
+	private static EnumMap<Cpu65c02Opcode, Integer> buildOpcodeByteMap() {
+		EnumMap<Cpu65c02Opcode, Integer> map = new EnumMap<Cpu65c02Opcode, Integer>(Cpu65c02Opcode.class);
+		for( Cpu65c02Opcode opcode : Cpu65c02Opcode.values() )
+			map.put(opcode, Integer.valueOf(opcode.opcodeByte));
+		return map;
+	}
+
+	private static EnumMap<Cpu65c02Opcode, MicroCycleProgram> buildMicrocodeProgramMap() {
+		EnumMap<Cpu65c02Opcode, MicroCycleProgram> map = new EnumMap<Cpu65c02Opcode, MicroCycleProgram>(Cpu65c02Opcode.class);
+		for( Cpu65c02Opcode opcode : Cpu65c02Opcode.values() )
+			map.put(opcode, opcode.microcode);
+		return map;
+	}
+
+	private static Cpu65c02Opcode[] buildByteToEnumMap() {
+		Cpu65c02Opcode[] map = new Cpu65c02Opcode[256];
+		for( Cpu65c02Opcode opcode : Cpu65c02Opcode.values() ) {
+			int byteValue = opcode.opcodeByte;
+			if( map[byteValue]!=null )
+				throw new IllegalStateException("Duplicate opcode byte: " + byteValue);
+			map[byteValue] = opcode;
+		}
+		return map;
 	}
 
 	private static MicroOp[] cycles(MicroOp... ops) {

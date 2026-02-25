@@ -83,7 +83,7 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void ldaOpcodeEnumMatchesOpcodeByteList() {
-		Cpu65c02Opcode[] ldaOps = Cpu65c02Opcode.values();
+		Cpu65c02Opcode[] ldaOps = Cpu65c02Opcode.ldaFamily().toArray(new Cpu65c02Opcode[0]);
 		int[] ldaBytes = Cpu65c02Opcode.ldaOpcodeBytes();
 		assertEquals(ldaOps.length, ldaBytes.length);
 		for( int i = 0; i<ldaOps.length; i++ )
@@ -92,12 +92,18 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void ldaOpcodeEnumProgramsDriveResolvedMicrocode() {
-		for( Cpu65c02Opcode lda : Cpu65c02Opcode.values() ) {
+		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() ) {
 			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(lda.opcodeByte());
 			assertEquals(lda.microcode().accessType(), entry.getAccessType());
 			assertArrayEquals(lda.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
 			assertArrayEquals(lda.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
 		}
+	}
+
+	@Test
+	public void opcodeByteRoundTripsToEnum() {
+		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
+			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
 	}
 
 	@Test
