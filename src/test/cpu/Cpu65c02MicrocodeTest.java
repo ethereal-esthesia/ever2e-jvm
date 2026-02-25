@@ -171,6 +171,38 @@ public class Cpu65c02MicrocodeTest {
 		}
 	}
 
+	private static final class SbcExpect {
+		final int opcode;
+		final MicroOp[] noCross;
+		final MicroOp[] cross;
+		final int readOffsetNoCross;
+		final int readOffsetCross;
+
+		SbcExpect(int opcode, MicroOp[] noCross, MicroOp[] cross, int readOffsetNoCross, int readOffsetCross) {
+			this.opcode = opcode;
+			this.noCross = noCross;
+			this.cross = cross;
+			this.readOffsetNoCross = readOffsetNoCross;
+			this.readOffsetCross = readOffsetCross;
+		}
+	}
+
+	private static final class CmpExpect {
+		final int opcode;
+		final MicroOp[] noCross;
+		final MicroOp[] cross;
+		final int readOffsetNoCross;
+		final int readOffsetCross;
+
+		CmpExpect(int opcode, MicroOp[] noCross, MicroOp[] cross, int readOffsetNoCross, int readOffsetCross) {
+			this.opcode = opcode;
+			this.noCross = noCross;
+			this.cross = cross;
+			this.readOffsetNoCross = readOffsetNoCross;
+			this.readOffsetCross = readOffsetCross;
+		}
+	}
+
 	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
 			new LdaExpect(0xA9,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
@@ -423,6 +455,84 @@ public class Cpu65c02MicrocodeTest {
 					4, 4),
 	};
 
+	private static final SbcExpect[] SBC_EXPECTATIONS = new SbcExpect[] {
+			new SbcExpect(0xE9,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					1, 1),
+			new SbcExpect(0xE5,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					2, 2),
+			new SbcExpect(0xF5,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 3),
+			new SbcExpect(0xED,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					3, 3),
+			new SbcExpect(0xFD,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new SbcExpect(0xF9,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new SbcExpect(0xE1,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					5, 5),
+			new SbcExpect(0xF1,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					4, 5),
+			new SbcExpect(0xF2,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					4, 4),
+	};
+
+	private static final CmpExpect[] CMP_EXPECTATIONS = new CmpExpect[] {
+			new CmpExpect(0xC9,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					1, 1),
+			new CmpExpect(0xC5,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					2, 2),
+			new CmpExpect(0xD5,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 3),
+			new CmpExpect(0xCD,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					3, 3),
+			new CmpExpect(0xDD,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new CmpExpect(0xD9,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new CmpExpect(0xC1,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					5, 5),
+			new CmpExpect(0xD1,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					4, 5),
+			new CmpExpect(0xD2,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					4, 4),
+	};
+
 	@Test
 	public void microOpNamesUseMPrefix() {
 		for( MicroOp op : MicroOp.values() )
@@ -665,6 +775,177 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void sbcOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] sbcOps = Cpu65c02Opcode.sbcFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] sbcBytes = Cpu65c02Opcode.sbcOpcodeBytes();
+		assertEquals(sbcOps.length, sbcBytes.length);
+		for( int i = 0; i<sbcOps.length; i++ )
+			assertEquals(sbcOps[i].opcodeByte(), sbcBytes[i]);
+	}
+
+	@Test
+	public void sbcOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode sbc : Cpu65c02Opcode.sbcFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(sbc.opcodeByte());
+			assertEquals(sbc.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(sbc.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(sbc.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void cmpOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] cmpOps = Cpu65c02Opcode.cmpFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] cmpBytes = Cpu65c02Opcode.cmpOpcodeBytes();
+		assertEquals(cmpOps.length, cmpBytes.length);
+		for( int i = 0; i<cmpOps.length; i++ )
+			assertEquals(cmpOps[i].opcodeByte(), cmpBytes[i]);
+	}
+
+	@Test
+	public void cmpOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode cmp : Cpu65c02Opcode.cmpFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(cmp.opcodeByte());
+			assertEquals(cmp.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(cmp.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(cmp.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void bitOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] bitOps = Cpu65c02Opcode.bitFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] bitBytes = Cpu65c02Opcode.bitOpcodeBytes();
+		assertEquals(bitOps.length, bitBytes.length);
+		for( int i = 0; i<bitOps.length; i++ )
+			assertEquals(bitOps[i].opcodeByte(), bitBytes[i]);
+	}
+
+	@Test
+	public void bitOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode bit : Cpu65c02Opcode.bitFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(bit.opcodeByte());
+			assertEquals(bit.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(bit.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(bit.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void ldxOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] ldxOps = Cpu65c02Opcode.ldxFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] ldxBytes = Cpu65c02Opcode.ldxOpcodeBytes();
+		assertEquals(ldxOps.length, ldxBytes.length);
+		for( int i = 0; i<ldxOps.length; i++ )
+			assertEquals(ldxOps[i].opcodeByte(), ldxBytes[i]);
+	}
+
+	@Test
+	public void ldxOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode ldx : Cpu65c02Opcode.ldxFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(ldx.opcodeByte());
+			assertEquals(ldx.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(ldx.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(ldx.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void ldyOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] ldyOps = Cpu65c02Opcode.ldyFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] ldyBytes = Cpu65c02Opcode.ldyOpcodeBytes();
+		assertEquals(ldyOps.length, ldyBytes.length);
+		for( int i = 0; i<ldyOps.length; i++ )
+			assertEquals(ldyOps[i].opcodeByte(), ldyBytes[i]);
+	}
+
+	@Test
+	public void ldyOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode ldy : Cpu65c02Opcode.ldyFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(ldy.opcodeByte());
+			assertEquals(ldy.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(ldy.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(ldy.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void stxOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] stxOps = Cpu65c02Opcode.stxFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] stxBytes = Cpu65c02Opcode.stxOpcodeBytes();
+		assertEquals(stxOps.length, stxBytes.length);
+		for( int i = 0; i<stxOps.length; i++ )
+			assertEquals(stxOps[i].opcodeByte(), stxBytes[i]);
+	}
+
+	@Test
+	public void stxOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode stx : Cpu65c02Opcode.stxFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(stx.opcodeByte());
+			assertEquals(stx.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(stx.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(stx.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void styOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] styOps = Cpu65c02Opcode.styFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] styBytes = Cpu65c02Opcode.styOpcodeBytes();
+		assertEquals(styOps.length, styBytes.length);
+		for( int i = 0; i<styOps.length; i++ )
+			assertEquals(styOps[i].opcodeByte(), styBytes[i]);
+	}
+
+	@Test
+	public void styOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode sty : Cpu65c02Opcode.styFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(sty.opcodeByte());
+			assertEquals(sty.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(sty.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(sty.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void cpxOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] cpxOps = Cpu65c02Opcode.cpxFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] cpxBytes = Cpu65c02Opcode.cpxOpcodeBytes();
+		assertEquals(cpxOps.length, cpxBytes.length);
+		for( int i = 0; i<cpxOps.length; i++ )
+			assertEquals(cpxOps[i].opcodeByte(), cpxBytes[i]);
+	}
+
+	@Test
+	public void cpxOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode cpx : Cpu65c02Opcode.cpxFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(cpx.opcodeByte());
+			assertEquals(cpx.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(cpx.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(cpx.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void cpyOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] cpyOps = Cpu65c02Opcode.cpyFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] cpyBytes = Cpu65c02Opcode.cpyOpcodeBytes();
+		assertEquals(cpyOps.length, cpyBytes.length);
+		for( int i = 0; i<cpyOps.length; i++ )
+			assertEquals(cpyOps[i].opcodeByte(), cpyBytes[i]);
+	}
+
+	@Test
+	public void cpyOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode cpy : Cpu65c02Opcode.cpyFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(cpy.opcodeByte());
+			assertEquals(cpy.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(cpy.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(cpy.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
 	public void opcodeByteRoundTripsToEnum() {
 		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
 			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
@@ -690,6 +971,24 @@ public class Cpu65c02MicrocodeTest {
 			assertEquals(eor, Cpu65c02Opcode.fromOpcodeByte(eor.opcodeByte()));
 		for( Cpu65c02Opcode adc : Cpu65c02Opcode.adcFamily() )
 			assertEquals(adc, Cpu65c02Opcode.fromOpcodeByte(adc.opcodeByte()));
+		for( Cpu65c02Opcode sbc : Cpu65c02Opcode.sbcFamily() )
+			assertEquals(sbc, Cpu65c02Opcode.fromOpcodeByte(sbc.opcodeByte()));
+		for( Cpu65c02Opcode cmp : Cpu65c02Opcode.cmpFamily() )
+			assertEquals(cmp, Cpu65c02Opcode.fromOpcodeByte(cmp.opcodeByte()));
+		for( Cpu65c02Opcode bit : Cpu65c02Opcode.bitFamily() )
+			assertEquals(bit, Cpu65c02Opcode.fromOpcodeByte(bit.opcodeByte()));
+		for( Cpu65c02Opcode ldx : Cpu65c02Opcode.ldxFamily() )
+			assertEquals(ldx, Cpu65c02Opcode.fromOpcodeByte(ldx.opcodeByte()));
+		for( Cpu65c02Opcode ldy : Cpu65c02Opcode.ldyFamily() )
+			assertEquals(ldy, Cpu65c02Opcode.fromOpcodeByte(ldy.opcodeByte()));
+		for( Cpu65c02Opcode stx : Cpu65c02Opcode.stxFamily() )
+			assertEquals(stx, Cpu65c02Opcode.fromOpcodeByte(stx.opcodeByte()));
+		for( Cpu65c02Opcode sty : Cpu65c02Opcode.styFamily() )
+			assertEquals(sty, Cpu65c02Opcode.fromOpcodeByte(sty.opcodeByte()));
+		for( Cpu65c02Opcode cpx : Cpu65c02Opcode.cpxFamily() )
+			assertEquals(cpx, Cpu65c02Opcode.fromOpcodeByte(cpx.opcodeByte()));
+		for( Cpu65c02Opcode cpy : Cpu65c02Opcode.cpyFamily() )
+			assertEquals(cpy, Cpu65c02Opcode.fromOpcodeByte(cpy.opcodeByte()));
 	}
 
 	@Test
@@ -831,6 +1130,90 @@ public class Cpu65c02MicrocodeTest {
 			assertEquals(expect.readOffsetNoCross, entry.getOperandReadCycleOffset(false));
 			assertEquals(expect.readOffsetCross, entry.getOperandReadCycleOffset(true));
 		}
+	}
+
+	@Test
+	public void allSbcOpcodesHaveExpectedMicrocodeOrder() {
+		for( SbcExpect expect : SBC_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertTrue(entry.usesMemoryDataRead());
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.noCross.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.cross.length, entry.getExpectedMnemonicOrder(true).length);
+			for( int i = 0; i<expect.noCross.length; i++ )
+				assertEquals(expect.noCross[i], entry.getExpectedMnemonicOrder(false)[i]);
+			for( int i = 0; i<expect.cross.length; i++ )
+				assertEquals(expect.cross[i], entry.getExpectedMnemonicOrder(true)[i]);
+			assertEquals(expect.readOffsetNoCross, entry.getOperandReadCycleOffset(false));
+			assertEquals(expect.readOffsetCross, entry.getOperandReadCycleOffset(true));
+		}
+	}
+
+	@Test
+	public void allCmpOpcodesHaveExpectedMicrocodeOrder() {
+		for( CmpExpect expect : CMP_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertTrue(entry.usesMemoryDataRead());
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.noCross.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.cross.length, entry.getExpectedMnemonicOrder(true).length);
+			for( int i = 0; i<expect.noCross.length; i++ )
+				assertEquals(expect.noCross[i], entry.getExpectedMnemonicOrder(false)[i]);
+			for( int i = 0; i<expect.cross.length; i++ )
+				assertEquals(expect.cross[i], entry.getExpectedMnemonicOrder(true)[i]);
+			assertEquals(expect.readOffsetNoCross, entry.getOperandReadCycleOffset(false));
+			assertEquals(expect.readOffsetCross, entry.getOperandReadCycleOffset(true));
+		}
+	}
+
+	@Test
+	public void ldxAbsoluteYCrossAddsDummyRead() {
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0xBE); // LDX abs,Y
+		MicroOp[] noCross = instr.getExpectedMnemonicOrder(false);
+		MicroOp[] cross = instr.getExpectedMnemonicOrder(true);
+		assertEquals(4, noCross.length);
+		assertEquals(5, cross.length);
+		assertEquals(MicroOp.M_READ_EA, noCross[3]);
+		assertEquals(MicroOp.M_READ_DUMMY, cross[3]);
+		assertEquals(MicroOp.M_READ_EA, cross[4]);
+	}
+
+	@Test
+	public void ldyAbsoluteXCrossAddsDummyRead() {
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0xBC); // LDY abs,X
+		MicroOp[] noCross = instr.getExpectedMnemonicOrder(false);
+		MicroOp[] cross = instr.getExpectedMnemonicOrder(true);
+		assertEquals(4, noCross.length);
+		assertEquals(5, cross.length);
+		assertEquals(MicroOp.M_READ_EA, noCross[3]);
+		assertEquals(MicroOp.M_READ_DUMMY, cross[3]);
+		assertEquals(MicroOp.M_READ_EA, cross[4]);
+	}
+
+	@Test
+	public void bitAbsoluteXHasSingleReadCycleNoSplitScript() {
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0x3C); // BIT abs,X
+		assertArrayEquals(instr.getExpectedMnemonicOrder(false), instr.getExpectedMnemonicOrder(true));
+		assertEquals(4, instr.getExpectedMnemonicOrder(false).length);
+		assertEquals(MicroOp.M_READ_EA, instr.getExpectedMnemonicOrder(false)[3]);
+	}
+
+	@Test
+	public void stxZeroPageYIncludesIndexedDummyReadBeforeWrite() {
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0x96); // STX zpg,Y
+		MicroOp[] script = instr.getExpectedMnemonicOrder(false);
+		assertEquals(Cpu65c02Microcode.AccessType.AT_WRITE, instr.getAccessType());
+		assertEquals(MicroOp.M_READ_DUMMY, script[2]);
+		assertEquals(MicroOp.M_WRITE_EA, script[3]);
+	}
+
+	@Test
+	public void styZeroPageXIncludesIndexedDummyReadBeforeWrite() {
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0x94); // STY zpg,X
+		MicroOp[] script = instr.getExpectedMnemonicOrder(false);
+		assertEquals(Cpu65c02Microcode.AccessType.AT_WRITE, instr.getAccessType());
+		assertEquals(MicroOp.M_READ_DUMMY, script[2]);
+		assertEquals(MicroOp.M_WRITE_EA, script[3]);
 	}
 
 	@Test

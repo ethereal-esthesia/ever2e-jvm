@@ -168,6 +168,42 @@ public final class Cpu65c02Microcode {
 			Cpu65c02Opcode.MicroCycleProgram program = adc.microcode();
 			set(table, adc.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
 		}
+		for( Cpu65c02Opcode sbc : Cpu65c02Opcode.sbcFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = sbc.microcode();
+			set(table, sbc.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode cmp : Cpu65c02Opcode.cmpFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = cmp.microcode();
+			set(table, cmp.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode bit : Cpu65c02Opcode.bitFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = bit.microcode();
+			set(table, bit.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode ldx : Cpu65c02Opcode.ldxFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = ldx.microcode();
+			set(table, ldx.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode ldy : Cpu65c02Opcode.ldyFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = ldy.microcode();
+			set(table, ldy.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode stx : Cpu65c02Opcode.stxFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = stx.microcode();
+			set(table, stx.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode sty : Cpu65c02Opcode.styFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = sty.microcode();
+			set(table, sty.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode cpx : Cpu65c02Opcode.cpxFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = cpx.microcode();
+			set(table, cpx.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
+		for( Cpu65c02Opcode cpy : Cpu65c02Opcode.cpyFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = cpy.microcode();
+			set(table, cpy.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
 
 		return table;
 	}

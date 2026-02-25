@@ -54,6 +54,15 @@ final class CpuExecutionPlanner {
 		out.addAll(Cpu65c02Opcode.andFamily());
 		out.addAll(Cpu65c02Opcode.eorFamily());
 		out.addAll(Cpu65c02Opcode.adcFamily());
+		out.addAll(Cpu65c02Opcode.sbcFamily());
+		out.addAll(Cpu65c02Opcode.cmpFamily());
+		out.addAll(Cpu65c02Opcode.bitFamily());
+		out.addAll(Cpu65c02Opcode.ldxFamily());
+		out.addAll(Cpu65c02Opcode.ldyFamily());
+		out.addAll(Cpu65c02Opcode.stxFamily());
+		out.addAll(Cpu65c02Opcode.styFamily());
+		out.addAll(Cpu65c02Opcode.cpxFamily());
+		out.addAll(Cpu65c02Opcode.cpyFamily());
 		return out;
 	}
 }

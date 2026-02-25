@@ -133,7 +133,77 @@ public enum Cpu65c02Opcode {
 	ADC_IND_Y(0x71, MicroCycleProgram.readSplit(
 			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA),
 			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
-	ADC_IND(0x72, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA)));
+	ADC_IND(0x72, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA))),
+
+	SBC_IMM(0xE9, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA))),
+	SBC_ZPG(0xE5, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA))),
+	SBC_ZPG_X(0xF5, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	SBC_ABS(0xED, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA))),
+	SBC_ABS_X(0xFD, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	SBC_ABS_Y(0xF9, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	SBC_IND_X(0xE1, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA))),
+	SBC_IND_Y(0xF1, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	SBC_IND(0xF2, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA))),
+
+	CMP_IMM(0xC9, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA))),
+	CMP_ZPG(0xC5, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA))),
+	CMP_ZPG_X(0xD5, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	CMP_ABS(0xCD, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA))),
+	CMP_ABS_X(0xDD, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	CMP_ABS_Y(0xD9, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	CMP_IND_X(0xC1, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA))),
+	CMP_IND_Y(0xD1, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	CMP_IND(0xD2, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA))),
+
+	BIT_IMM(0x89, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA))),
+	BIT_ZPG(0x24, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA))),
+	BIT_ZPG_X(0x34, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	BIT_ABS(0x2C, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA))),
+	BIT_ABS_X(0x3C, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA))),
+
+	LDX_IMM(0xA2, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA))),
+	LDX_ZPG(0xA6, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA))),
+	LDX_ZPG_Y(0xB6, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	LDX_ABS(0xAE, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA))),
+	LDX_ABS_Y(0xBE, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+
+	LDY_IMM(0xA0, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA))),
+	LDY_ZPG(0xA4, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA))),
+	LDY_ZPG_X(0xB4, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+	LDY_ABS(0xAC, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA))),
+	LDY_ABS_X(0xBC, MicroCycleProgram.readSplit(
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
+			cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA))),
+
+	STX_ZPG(0x86, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_WRITE_EA))),
+	STX_ZPG_Y(0x96, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA))),
+	STX_ABS(0x8E, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_WRITE_EA))),
+
+	STY_ZPG(0x84, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_WRITE_EA))),
+	STY_ZPG_X(0x94, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_WRITE_EA))),
+	STY_ABS(0x8C, MicroCycleProgram.writeShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_WRITE_EA))),
+
+	CPX_IMM(0xE0, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA))),
+	CPX_ZPG(0xE4, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA))),
+	CPX_ABS(0xEC, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA))),
+
+	CPY_IMM(0xC0, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA))),
+	CPY_ZPG(0xC4, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA))),
+	CPY_ABS(0xCC, MicroCycleProgram.readShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA)));
 
 	private final int opcodeByte;
 	private final MicroCycleProgram microcode;
@@ -164,6 +234,24 @@ public enum Cpu65c02Opcode {
 			EOR_IMM, EOR_ZPG, EOR_ZPG_X, EOR_ABS, EOR_ABS_X, EOR_ABS_Y, EOR_IND_X, EOR_IND_Y, EOR_IND);
 	private static final EnumSet<Cpu65c02Opcode> ADC_FAMILY = EnumSet.of(
 			ADC_IMM, ADC_ZPG, ADC_ZPG_X, ADC_ABS, ADC_ABS_X, ADC_ABS_Y, ADC_IND_X, ADC_IND_Y, ADC_IND);
+	private static final EnumSet<Cpu65c02Opcode> SBC_FAMILY = EnumSet.of(
+			SBC_IMM, SBC_ZPG, SBC_ZPG_X, SBC_ABS, SBC_ABS_X, SBC_ABS_Y, SBC_IND_X, SBC_IND_Y, SBC_IND);
+	private static final EnumSet<Cpu65c02Opcode> CMP_FAMILY = EnumSet.of(
+			CMP_IMM, CMP_ZPG, CMP_ZPG_X, CMP_ABS, CMP_ABS_X, CMP_ABS_Y, CMP_IND_X, CMP_IND_Y, CMP_IND);
+	private static final EnumSet<Cpu65c02Opcode> BIT_FAMILY = EnumSet.of(
+			BIT_IMM, BIT_ZPG, BIT_ZPG_X, BIT_ABS, BIT_ABS_X);
+	private static final EnumSet<Cpu65c02Opcode> LDX_FAMILY = EnumSet.of(
+			LDX_IMM, LDX_ZPG, LDX_ZPG_Y, LDX_ABS, LDX_ABS_Y);
+	private static final EnumSet<Cpu65c02Opcode> LDY_FAMILY = EnumSet.of(
+			LDY_IMM, LDY_ZPG, LDY_ZPG_X, LDY_ABS, LDY_ABS_X);
+	private static final EnumSet<Cpu65c02Opcode> STX_FAMILY = EnumSet.of(
+			STX_ZPG, STX_ZPG_Y, STX_ABS);
+	private static final EnumSet<Cpu65c02Opcode> STY_FAMILY = EnumSet.of(
+			STY_ZPG, STY_ZPG_X, STY_ABS);
+	private static final EnumSet<Cpu65c02Opcode> CPX_FAMILY = EnumSet.of(
+			CPX_IMM, CPX_ZPG, CPX_ABS);
+	private static final EnumSet<Cpu65c02Opcode> CPY_FAMILY = EnumSet.of(
+			CPY_IMM, CPY_ZPG, CPY_ABS);
 
 	Cpu65c02Opcode(int opcodeByte, MicroCycleProgram microcode) {
 		this.opcodeByte = opcodeByte & 0xff;
@@ -278,6 +366,78 @@ public enum Cpu65c02Opcode {
 		return buildAdcOpcodeBytes();
 	}
 
+	public static EnumSet<Cpu65c02Opcode> sbcFamily() {
+		return EnumSet.copyOf(SBC_FAMILY);
+	}
+
+	public static int[] sbcOpcodeBytes() {
+		return buildSbcOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> cmpFamily() {
+		return EnumSet.copyOf(CMP_FAMILY);
+	}
+
+	public static int[] cmpOpcodeBytes() {
+		return buildCmpOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> bitFamily() {
+		return EnumSet.copyOf(BIT_FAMILY);
+	}
+
+	public static int[] bitOpcodeBytes() {
+		return buildBitOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> ldxFamily() {
+		return EnumSet.copyOf(LDX_FAMILY);
+	}
+
+	public static int[] ldxOpcodeBytes() {
+		return buildLdxOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> ldyFamily() {
+		return EnumSet.copyOf(LDY_FAMILY);
+	}
+
+	public static int[] ldyOpcodeBytes() {
+		return buildLdyOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> stxFamily() {
+		return EnumSet.copyOf(STX_FAMILY);
+	}
+
+	public static int[] stxOpcodeBytes() {
+		return buildStxOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> styFamily() {
+		return EnumSet.copyOf(STY_FAMILY);
+	}
+
+	public static int[] styOpcodeBytes() {
+		return buildStyOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> cpxFamily() {
+		return EnumSet.copyOf(CPX_FAMILY);
+	}
+
+	public static int[] cpxOpcodeBytes() {
+		return buildCpxOpcodeBytes();
+	}
+
+	public static EnumSet<Cpu65c02Opcode> cpyFamily() {
+		return EnumSet.copyOf(CPY_FAMILY);
+	}
+
+	public static int[] cpyOpcodeBytes() {
+		return buildCpyOpcodeBytes();
+	}
+
 	private static int[] buildLdaOpcodeBytes() {
 		Cpu65c02Opcode[] ops = LDA_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
@@ -368,6 +528,78 @@ public enum Cpu65c02Opcode {
 
 	private static int[] buildAdcOpcodeBytes() {
 		Cpu65c02Opcode[] ops = ADC_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildSbcOpcodeBytes() {
+		Cpu65c02Opcode[] ops = SBC_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildCmpOpcodeBytes() {
+		Cpu65c02Opcode[] ops = CMP_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildBitOpcodeBytes() {
+		Cpu65c02Opcode[] ops = BIT_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildLdxOpcodeBytes() {
+		Cpu65c02Opcode[] ops = LDX_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildLdyOpcodeBytes() {
+		Cpu65c02Opcode[] ops = LDY_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildStxOpcodeBytes() {
+		Cpu65c02Opcode[] ops = STX_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildStyOpcodeBytes() {
+		Cpu65c02Opcode[] ops = STY_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildCpxOpcodeBytes() {
+		Cpu65c02Opcode[] ops = CPX_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildCpyOpcodeBytes() {
+		Cpu65c02Opcode[] ops = CPY_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
 		for( int i = 0; i<ops.length; i++ )
 			bytes[i] = ops[i].opcodeByte();

@@ -124,11 +124,26 @@ public class EmulatorSchedulerContractTest {
             case 0x29: // AND #imm
             case 0x49: // EOR #imm
             case 0x69: // ADC #imm
+            case 0xE9: // SBC #imm
+            case 0xC9: // CMP #imm
+            case 0x89: // BIT #imm
+            case 0xA2: // LDX #imm
+            case 0xA0: // LDY #imm
+            case 0xE0: // CPX #imm
+            case 0xC0: // CPY #imm
                 loadProgram(env, PROG_PC, opcodeByte, 0x42, 0xEA);
                 break;
             case 0x85: // STA zpg
                 loadProgram(env, PROG_PC, opcodeByte, 0x10, 0xEA);
                 env.cpu.getRegister().setA(0x77);
+                break;
+            case 0x86: // STX zpg
+                loadProgram(env, PROG_PC, opcodeByte, 0x10, 0xEA);
+                env.cpu.getRegister().setX(0x66);
+                break;
+            case 0x84: // STY zpg
+                loadProgram(env, PROG_PC, opcodeByte, 0x10, 0xEA);
+                env.cpu.getRegister().setY(0x55);
                 break;
             case 0xE6: // INC zpg
             case 0xC6: // DEC zpg
@@ -225,7 +240,16 @@ public class EmulatorSchedulerContractTest {
                 0x09, // ORA
                 0x29, // AND
                 0x49, // EOR
-                0x69  // ADC
+                0x69, // ADC
+                0xE9, // SBC
+                0xC9, // CMP
+                0x89, // BIT
+                0xA2, // LDX
+                0xA0, // LDY
+                0x86, // STX
+                0x84, // STY
+                0xE0, // CPX
+                0xC0  // CPY
         };
 
         for (int opcodeByte : representatives) {
