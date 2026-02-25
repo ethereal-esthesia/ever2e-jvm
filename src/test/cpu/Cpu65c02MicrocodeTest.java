@@ -6,7 +6,6 @@ import core.cpu.cpu8.Opcode;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class Cpu65c02MicrocodeTest {
@@ -42,15 +41,25 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void readMnemonicsClassification() {
-		assertTrue(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OpcodeMnemonic.LDA));
-		assertTrue(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OpcodeMnemonic.BIT));
-		assertFalse(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OpcodeMnemonic.STA));
-		assertFalse(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OpcodeMnemonic.BNE));
+		assertTrue(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OPCODE[0xA9])); // LDA #imm
+		assertTrue(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OPCODE[0x2C])); // BIT abs
+		assertEquals(Cpu65c02Microcode.MicroOp.M_NONE, Cpu65c02Microcode.operandReadMicroOp(Cpu65c02.OPCODE[0x9D])); // STA abs,X
+		assertEquals(Cpu65c02Microcode.MicroOp.M_NONE, Cpu65c02Microcode.operandReadMicroOp(Cpu65c02.OPCODE[0xD0])); // BNE rel
 	}
 
 	@Test
 	public void microOpNamesUseMPrefix() {
 		for( Cpu65c02Microcode.MicroOp op : Cpu65c02Microcode.MicroOp.values() )
 			assertTrue(op.name().startsWith("M_"));
+	}
+
+	@Test
+	public void everyOpcodeHasMicroInstrEntry() {
+		for( int op = 0; op<256; op++ ) {
+			Cpu65c02Microcode.OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(op);
+			assertTrue(instr!=null);
+			assertEquals(op, instr.getOpcodeByte());
+			assertTrue(instr.getMicroOp()!=null);
+		}
 	}
 }
