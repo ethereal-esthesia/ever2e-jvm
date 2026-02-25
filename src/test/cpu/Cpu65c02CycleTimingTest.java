@@ -44,22 +44,32 @@ public class Cpu65c02CycleTimingTest {
         }
     }
 
+    private void runInstruction(CpuEnv env) throws HardwareException {
+        while (true) {
+            boolean instructionEndsThisCycle = env.cpu.hasPendingInstructionEndEvent();
+            env.cpu.cycle();
+            if (instructionEndsThisCycle) {
+                return;
+            }
+        }
+    }
+
     @Test
     public void ldaAbsXAddsCycleOnPageCrossOnly() throws Exception {
         CpuEnv env = createEnv();
         loadProgram(env, 0xBD, 0xFE, 0x20); // LDA $20FE,X
-        env.cpu.cycle(); // execute reset after program bytes are loaded
+        runInstruction(env); // execute reset after program bytes are loaded
         env.reg.setX(0x01);
         env.bus.setByte(0x20FF, 0x11);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(4, env.cpu.getLastInstructionCycleCount());
 
         env = createEnv();
         loadProgram(env, 0xBD, 0xFF, 0x20); // LDA $20FF,X
-        env.cpu.cycle();
+        runInstruction(env);
         env.reg.setX(0x01);
         env.bus.setByte(0x2100, 0x22);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(5, env.cpu.getLastInstructionCycleCount());
     }
 
@@ -67,18 +77,18 @@ public class Cpu65c02CycleTimingTest {
     public void ldaAbsYAddsCycleOnPageCrossOnly() throws Exception {
         CpuEnv env = createEnv();
         loadProgram(env, 0xB9, 0xFE, 0x20); // LDA $20FE,Y
-        env.cpu.cycle();
+        runInstruction(env);
         env.reg.setY(0x01);
         env.bus.setByte(0x20FF, 0x33);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(4, env.cpu.getLastInstructionCycleCount());
 
         env = createEnv();
         loadProgram(env, 0xB9, 0xFF, 0x20); // LDA $20FF,Y
-        env.cpu.cycle();
+        runInstruction(env);
         env.reg.setY(0x01);
         env.bus.setByte(0x2100, 0x44);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(5, env.cpu.getLastInstructionCycleCount());
     }
 
@@ -86,22 +96,22 @@ public class Cpu65c02CycleTimingTest {
     public void ldaIndYAddsCycleOnPageCrossOnly() throws Exception {
         CpuEnv env = createEnv();
         loadProgram(env, 0xB1, 0x10); // LDA ($10),Y
-        env.cpu.cycle();
+        runInstruction(env);
         env.reg.setY(0x01);
         env.bus.setByte(0x0010, 0xFE);
         env.bus.setByte(0x0011, 0x20);
         env.bus.setByte(0x20FF, 0x55);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(5, env.cpu.getLastInstructionCycleCount());
 
         env = createEnv();
         loadProgram(env, 0xB1, 0x10); // LDA ($10),Y
-        env.cpu.cycle();
+        runInstruction(env);
         env.reg.setY(0x01);
         env.bus.setByte(0x0010, 0xFF);
         env.bus.setByte(0x0011, 0x20);
         env.bus.setByte(0x2100, 0x66);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(6, env.cpu.getLastInstructionCycleCount());
     }
 
@@ -109,11 +119,11 @@ public class Cpu65c02CycleTimingTest {
     public void jmpAbsIndXHasNoPageCrossPenalty() throws Exception {
         CpuEnv env = createEnv();
         loadProgram(env, 0x7C, 0xFF, 0x20); // JMP ($20FF,X)
-        env.cpu.cycle();
+        runInstruction(env);
         env.reg.setX(0x01);
         env.bus.setByte(0x2100, 0x34);
         env.bus.setByte(0x2101, 0x12);
-        env.cpu.cycle();
+        runInstruction(env);
         assertEquals(6, env.cpu.getLastInstructionCycleCount());
         assertEquals(0x1234, env.cpu.getPendingPC());
     }
@@ -122,7 +132,7 @@ public class Cpu65c02CycleTimingTest {
     public void staAbsXHasNoExtraPageCrossCycle() throws Exception {
         CpuEnv env = createEnv();
         loadProgram(env, 0x9D, 0xFF, 0x20); // STA $20FF,X
-        env.cpu.cycle();
+        runInstruction(env);
         env.reg.setA(0xA5);
         env.reg.setX(0x01);
         env.cpu.cycle();

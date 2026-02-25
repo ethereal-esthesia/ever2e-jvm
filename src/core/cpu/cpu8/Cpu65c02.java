@@ -1,5 +1,8 @@
 package core.cpu.cpu8;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 import core.cpu.cpu8.Register.StatusRegister;
 import core.exception.HardwareException;
 import core.memory.memory8.MemoryBus8;
@@ -40,6 +43,8 @@ public class Cpu65c02 extends HardwareManager {
 	private int idleCycle;
 	private int lastCycleCount;
 	private int lastInstructionCycleCount;
+	private int pendingInstructionCyclesConsumed;
+	private final Deque<CpuExecutionEvent> executionQueue = new ArrayDeque<CpuExecutionEvent>();
 
 	private volatile Opcode interruptPending;
 	private boolean isHalted;
@@ -48,6 +53,21 @@ public class Cpu65c02 extends HardwareManager {
 	private Integer resetXOverride;
 	private Integer resetYOverride;
 	private Integer resetSOverride;
+
+	@FunctionalInterface
+	private interface CpuExecutionAction {
+		void run() throws HardwareException;
+	}
+
+	private static final class CpuExecutionEvent {
+		private final boolean instructionEnd;
+		private final CpuExecutionAction action;
+
+		private CpuExecutionEvent(boolean instructionEnd, CpuExecutionAction action) {
+			this.instructionEnd = instructionEnd;
+			this.action = action;
+		}
+	}
 	
 	private static final int STACK_PAGE = 0x100;
 	
@@ -455,21 +475,93 @@ public class Cpu65c02 extends HardwareManager {
 		// First instruction is a reset interrupt
 		opcode = null;
 		interruptPending = null;
-		newOpcode = INTERRUPT_RES;
-		cycleCount = INTERRUPT_RES.getCycleTime();
-		resetPOverride = null;
+			newOpcode = INTERRUPT_RES;
+			cycleCount = INTERRUPT_RES.getCycleTime();
+			resetPOverride = null;
 		resetAOverride = null;
 		resetXOverride = null;
-		resetYOverride = null;
-		resetSOverride = null;
-		
-		memory.coldReset();
+			resetYOverride = null;
+			resetSOverride = null;
+			executionQueue.clear();
+			enqueueNextInstructionEvents();
+			
+			memory.coldReset();
 		
 	}
 
 	@Override
-	public void cycle() throws HardwareException 
-	{
+	public void cycle() throws HardwareException {
+		if( idleCycle>5 )
+			throw new HardwareException("Hardware has requested an extended delay, comprimising CPU data integrity");
+		if( executionQueue.isEmpty() )
+			enqueueNextInstructionEvents();
+		CpuExecutionEvent event = executionQueue.removeFirst();
+		event.action.run();
+	}
+
+	private void enqueueNextInstructionEvents() {
+		Opcode scheduledOpcode = newOpcode;
+		int scheduledPc = newPc & 0xffff;
+		if( shouldUseMicroQueueForOpcode(scheduledOpcode) ) {
+			int totalCycles = predictInstructionCycles(scheduledOpcode, scheduledPc);
+			int pendingCycles = Math.max(0, totalCycles-1);
+			pendingInstructionCyclesConsumed = pendingCycles;
+			for( int i = 0; i<pendingCycles; i++ )
+				enqueueExecutionEvent(false, this::runPendingInstructionCycle);
+			enqueueExecutionEvent(true, this::executeInstructionAtomicCore);
+			return;
+		}
+		pendingInstructionCyclesConsumed = 0;
+		enqueueExecutionEvent(true, this::executeInstructionAtomicCore);
+	}
+
+	private void enqueueExecutionEvent(boolean instructionEnd, CpuExecutionAction action) {
+		executionQueue.addLast(new CpuExecutionEvent(instructionEnd, action));
+	}
+
+	private void runPendingInstructionCycle() {
+		incSleepCycles(1);
+	}
+
+	private boolean shouldUseMicroQueueForOpcode(Opcode op) {
+		return op!=null && op.getMachineCode()!=null && op.getMnemonic()==OpcodeMnemonic.LDA;
+	}
+
+	private int predictInstructionCycles(Opcode op, int pc) {
+		int cycles = op.getCycleTime();
+		if( op.getMnemonic()!=OpcodeMnemonic.LDA )
+			return cycles;
+		int operandCounter = (pc+1)&0xffff;
+		switch( op.getAddressMode() ) {
+			case ABS_X: {
+				int base = memory.getWord16LittleEndian(operandCounter);
+				int eff = (base + reg.getX()) & 0xffff;
+				if( (base>>8)!=(eff>>8) )
+					cycles++;
+				break;
+			}
+			case ABS_Y: {
+				int base = memory.getWord16LittleEndian(operandCounter);
+				int eff = (base + reg.getY()) & 0xffff;
+				if( (base>>8)!=(eff>>8) )
+					cycles++;
+				break;
+			}
+			case IND_Y: {
+				int ptr = memory.getByte(operandCounter);
+				int base = memory.getWord16LittleEndian(ptr, 0xff);
+				int eff = (base + reg.getY()) & 0xffff;
+				if( (base>>8)!=(eff>>8) )
+					cycles++;
+				break;
+			}
+			default:
+				break;
+		}
+		return cycles;
+	}
+
+	private void executeInstructionAtomicCore() throws HardwareException {
 	
 		/// TODO: Sather 4-27 and C-15 contains more information on per-cycle instruction effects and double / triple / quadruple strobe effects
 		if( idleCycle>5 )
@@ -1198,8 +1290,12 @@ public class Cpu65c02 extends HardwareManager {
 	
 		lastInstructionCycleCount = cycleCount;
 		lastCycleCount = idleCycle+cycleCount;
-		incSleepCycles(lastCycleCount);
+		int cyclesRemaining = cycleCount-pendingInstructionCyclesConsumed;
+		if( cyclesRemaining<1 )
+			cyclesRemaining = 1;
+		incSleepCycles(idleCycle+cyclesRemaining);
 		idleCycle = 0;
+		pendingInstructionCyclesConsumed = 0;
 	
 		// Supress maskable interrupts if P.I is set
 		if( interruptPending==INTERRUPT_IRQ && reg.getP(StatusRegister.I) )
@@ -1217,6 +1313,7 @@ public class Cpu65c02 extends HardwareManager {
 			if( interruptPending!=INTERRUPT_HLT )
 				interruptPending = null;
 		}
+		enqueueNextInstructionEvents();
 		
 	}
 
@@ -1402,6 +1499,20 @@ public class Cpu65c02 extends HardwareManager {
 
 	public void setResetSOverride(Integer s) {
 		resetSOverride = s==null ? null : (s&0xff);
+	}
+
+	public int getPendingExecutionEventCount() {
+		return executionQueue.size();
+	}
+
+	public boolean hasPendingInstructionEndEvent() {
+		CpuExecutionEvent event = executionQueue.peekFirst();
+		return event!=null && event.instructionEnd;
+	}
+
+	public boolean hasPendingInstructionNonFinalEvent() {
+		CpuExecutionEvent event = executionQueue.peekFirst();
+		return event!=null && !event.instructionEnd;
 	}
 
 	public int getLastCycleCount() {

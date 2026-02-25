@@ -344,7 +344,7 @@ public class Cpu65C02OpcodeLevelTest {
 
         RefState before = randomStateForTrial(opcode, rng);
         prepareInstructionBytes(env, setup, rng, before);
-        env.cpu.cycle(); // execute reset; next opcode is now fetched from PROG_PC
+        runInstruction(env.cpu); // execute reset; next opcode is now fetched from PROG_PC
 
         applyCpuState(env.cpu.getRegister(), before);
 
@@ -352,7 +352,7 @@ public class Cpu65C02OpcodeLevelTest {
         RefMem refMem = new RefMem(env.bus);
         runReference(expected, setup, refMem, env.rom);
 
-        env.cpu.cycle(); // execute target opcode
+        runInstruction(env.cpu); // execute target opcode
 
         Register got = env.cpu.getRegister();
         if (got.getA() != expected.a) {
@@ -382,6 +382,16 @@ public class Cpu65C02OpcodeLevelTest {
         }
 
         return null;
+    }
+
+    private static void runInstruction(Cpu65c02 cpu) throws HardwareException {
+        while (true) {
+            boolean instructionEndsThisCycle = cpu.hasPendingInstructionEndEvent();
+            cpu.cycle();
+            if (instructionEndsThisCycle) {
+                return;
+            }
+        }
     }
 
     private static CpuEnv createCpuEnv() throws HardwareException {
