@@ -37,17 +37,27 @@ public final class Cpu65c02Microcode {
 	}
 
 	public enum MicroOp {
-		M_FETCH_OPCODE,
-		M_FETCH_OPERAND_LO,
-		M_FETCH_OPERAND_HI,
-		M_READ_IMM_DATA,
-		M_READ_ZP_PTR_LO,
-		M_READ_ZP_PTR_HI,
-		M_READ_DUMMY,
-		M_READ_EA,
-		M_WRITE_EA_DUMMY,
-		M_WRITE_EA,
-		M_INTERNAL
+		M_FETCH_OPCODE(0),
+		M_FETCH_OPERAND_LO(1),
+		M_FETCH_OPERAND_HI(2),
+		M_READ_IMM_DATA(3),
+		M_READ_ZP_PTR_LO(4),
+		M_READ_ZP_PTR_HI(5),
+		M_READ_DUMMY(6),
+		M_READ_EA(7),
+		M_WRITE_EA_DUMMY(8),
+		M_WRITE_EA(9),
+		M_INTERNAL(10);
+
+		private final int code;
+
+		MicroOp(int code) {
+			this.code = code;
+		}
+
+		public int code() {
+			return code;
+		}
 	}
 
 	public enum AccessType {

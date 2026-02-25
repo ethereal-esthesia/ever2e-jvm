@@ -73,6 +73,13 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void microOpsHaveStableSequentialCodes() {
+		MicroOp[] ops = MicroOp.values();
+		for( int i = 0; i<ops.length; i++ )
+			assertEquals(i, ops[i].code());
+	}
+
+	@Test
 	public void ldaAbsoluteCycleScript() {
 		Cpu65c02Opcode instr = Cpu65c02Microcode.opcodeForByte(0xAD); // LDA abs
 		assertEquals(MicroOp.M_FETCH_OPCODE, instr.getExpectedMnemonicOrder(false)[0]);
