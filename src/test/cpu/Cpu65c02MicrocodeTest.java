@@ -139,6 +139,22 @@ public class Cpu65c02MicrocodeTest {
 		}
 	}
 
+	private static final class EorExpect {
+		final int opcode;
+		final MicroOp[] noCross;
+		final MicroOp[] cross;
+		final int readOffsetNoCross;
+		final int readOffsetCross;
+
+		EorExpect(int opcode, MicroOp[] noCross, MicroOp[] cross, int readOffsetNoCross, int readOffsetCross) {
+			this.opcode = opcode;
+			this.noCross = noCross;
+			this.cross = cross;
+			this.readOffsetNoCross = readOffsetNoCross;
+			this.readOffsetCross = readOffsetCross;
+		}
+	}
+
 	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
 			new LdaExpect(0xA9,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
@@ -308,6 +324,45 @@ public class Cpu65c02MicrocodeTest {
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
 					4, 5),
 			new AndExpect(0x32,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					4, 4),
+	};
+
+	private static final EorExpect[] EOR_EXPECTATIONS = new EorExpect[] {
+			new EorExpect(0x49,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					1, 1),
+			new EorExpect(0x45,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					2, 2),
+			new EorExpect(0x55,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 3),
+			new EorExpect(0x4D,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					3, 3),
+			new EorExpect(0x5D,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new EorExpect(0x59,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new EorExpect(0x41,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					5, 5),
+			new EorExpect(0x51,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					4, 5),
+			new EorExpect(0x52,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
 					4, 4),
@@ -517,6 +572,25 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void eorOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] eorOps = Cpu65c02Opcode.eorFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] eorBytes = Cpu65c02Opcode.eorOpcodeBytes();
+		assertEquals(eorOps.length, eorBytes.length);
+		for( int i = 0; i<eorOps.length; i++ )
+			assertEquals(eorOps[i].opcodeByte(), eorBytes[i]);
+	}
+
+	@Test
+	public void eorOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode eor : Cpu65c02Opcode.eorFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(eor.opcodeByte());
+			assertEquals(eor.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(eor.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(eor.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
 	public void opcodeByteRoundTripsToEnum() {
 		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
 			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
@@ -538,6 +612,8 @@ public class Cpu65c02MicrocodeTest {
 			assertEquals(ora, Cpu65c02Opcode.fromOpcodeByte(ora.opcodeByte()));
 		for( Cpu65c02Opcode and : Cpu65c02Opcode.andFamily() )
 			assertEquals(and, Cpu65c02Opcode.fromOpcodeByte(and.opcodeByte()));
+		for( Cpu65c02Opcode eor : Cpu65c02Opcode.eorFamily() )
+			assertEquals(eor, Cpu65c02Opcode.fromOpcodeByte(eor.opcodeByte()));
 	}
 
 	@Test
@@ -633,6 +709,23 @@ public class Cpu65c02MicrocodeTest {
 	@Test
 	public void allAndOpcodesHaveExpectedMicrocodeOrder() {
 		for( AndExpect expect : AND_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertTrue(entry.usesMemoryDataRead());
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.noCross.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.cross.length, entry.getExpectedMnemonicOrder(true).length);
+			for( int i = 0; i<expect.noCross.length; i++ )
+				assertEquals(expect.noCross[i], entry.getExpectedMnemonicOrder(false)[i]);
+			for( int i = 0; i<expect.cross.length; i++ )
+				assertEquals(expect.cross[i], entry.getExpectedMnemonicOrder(true)[i]);
+			assertEquals(expect.readOffsetNoCross, entry.getOperandReadCycleOffset(false));
+			assertEquals(expect.readOffsetCross, entry.getOperandReadCycleOffset(true));
+		}
+	}
+
+	@Test
+	public void allEorOpcodesHaveExpectedMicrocodeOrder() {
+		for( EorExpect expect : EOR_EXPECTATIONS ) {
 			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
 			assertTrue(entry.usesMemoryDataRead());
 			assertEquals(expect.opcode, entry.getOpcodeByte());
