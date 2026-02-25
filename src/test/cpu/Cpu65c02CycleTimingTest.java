@@ -2,11 +2,15 @@ package test.cpu;
 
 import core.cpu.cpu8.Cpu65c02;
 import core.cpu.cpu8.Cpu65c02CycleEstimator;
+import core.emulator.HardwareManager;
+import core.emulator.machine.Emulator;
 import core.cpu.cpu8.Register;
 import core.exception.HardwareException;
 import core.memory.memory8.Memory8;
 import core.memory.memory8.MemoryBusIIe;
 import org.junit.Test;
+
+import java.util.PriorityQueue;
 
 import static org.junit.Assert.assertEquals;
 
@@ -19,11 +23,13 @@ public class Cpu65c02CycleTimingTest {
     private static final class CpuEnv {
         final MemoryBusIIe bus;
         final Cpu65c02 cpu;
+        final Emulator emulator;
         final Register reg;
 
-        CpuEnv(MemoryBusIIe bus, Cpu65c02 cpu) {
+        CpuEnv(MemoryBusIIe bus, Cpu65c02 cpu, Emulator emulator) {
             this.bus = bus;
             this.cpu = cpu;
+            this.emulator = emulator;
             this.reg = cpu.getRegister();
         }
     }
@@ -33,10 +39,13 @@ public class Cpu65c02CycleTimingTest {
         byte[] rom = new byte[ROM_SIZE];
         MemoryBusIIe bus = new MemoryBusIIe(mem, rom);
         Cpu65c02 cpu = new Cpu65c02(bus, 0);
+        PriorityQueue<HardwareManager> queue = new PriorityQueue<HardwareManager>();
+        queue.add(cpu);
+        Emulator emulator = new Emulator(queue, 0);
         cpu.coldReset();
         rom[0x3ffc] = (byte) (PROG_PC & 0xFF);
         rom[0x3ffd] = (byte) ((PROG_PC >> 8) & 0xFF);
-        return new CpuEnv(bus, cpu);
+        return new CpuEnv(bus, cpu, emulator);
     }
 
     private void loadProgram(CpuEnv env, int... bytes) {
@@ -45,10 +54,10 @@ public class Cpu65c02CycleTimingTest {
         }
     }
 
-    private void runInstruction(CpuEnv env) throws HardwareException {
+    private void runInstruction(CpuEnv env) throws Exception {
         while (true) {
             boolean instructionEndsThisCycle = env.cpu.hasPendingInstructionEndEvent();
-            env.cpu.cycle();
+            env.emulator.startWithStepPhases(1, env.cpu, (step, manager, preCycle) -> true);
             if (instructionEndsThisCycle) {
                 return;
             }

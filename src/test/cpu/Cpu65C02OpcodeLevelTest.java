@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Random;
 
 import com.sun.management.OperatingSystemMXBean;
@@ -19,6 +20,8 @@ import core.cpu.cpu8.Cpu65c02.AddressMode;
 import core.cpu.cpu8.Cpu65c02.OpcodeMnemonic;
 import core.cpu.cpu8.Opcode;
 import core.cpu.cpu8.Register;
+import core.emulator.HardwareManager;
+import core.emulator.machine.Emulator;
 import core.exception.HardwareException;
 import core.memory.memory8.Memory8;
 import core.memory.memory8.MemoryBusIIe;
@@ -84,12 +87,14 @@ public class Cpu65C02OpcodeLevelTest {
         final Memory8 memory;
         final MemoryBusIIe bus;
         final Cpu65c02 cpu;
+        final Emulator emulator;
         final byte[] rom;
 
-        CpuEnv(Memory8 memory, MemoryBusIIe bus, Cpu65c02 cpu, byte[] rom) {
+        CpuEnv(Memory8 memory, MemoryBusIIe bus, Cpu65c02 cpu, Emulator emulator, byte[] rom) {
             this.memory = memory;
             this.bus = bus;
             this.cpu = cpu;
+            this.emulator = emulator;
             this.rom = rom;
         }
     }
@@ -336,7 +341,7 @@ public class Cpu65C02OpcodeLevelTest {
         return -1L;
     }
 
-    private static TrialFailure runTrial(int opByte, Opcode opcode, int trial, Random rng) throws HardwareException {
+    private static TrialFailure runTrial(int opByte, Opcode opcode, int trial, Random rng) throws Exception {
         CpuEnv env = createCpuEnv();
         Setup setup = new Setup();
         setup.opcodeByte = opByte;
@@ -344,7 +349,7 @@ public class Cpu65C02OpcodeLevelTest {
 
         RefState before = randomStateForTrial(opcode, rng);
         prepareInstructionBytes(env, setup, rng, before);
-        runInstruction(env.cpu); // execute reset; next opcode is now fetched from PROG_PC
+        runInstruction(env); // execute reset; next opcode is now fetched from PROG_PC
 
         applyCpuState(env.cpu.getRegister(), before);
 
@@ -352,7 +357,7 @@ public class Cpu65C02OpcodeLevelTest {
         RefMem refMem = new RefMem(env.bus);
         runReference(expected, setup, refMem, env.rom);
 
-        runInstruction(env.cpu); // execute target opcode
+        runInstruction(env); // execute target opcode
 
         Register got = env.cpu.getRegister();
         if (got.getA() != expected.a) {
@@ -384,10 +389,10 @@ public class Cpu65C02OpcodeLevelTest {
         return null;
     }
 
-    private static void runInstruction(Cpu65c02 cpu) throws HardwareException {
+    private static void runInstruction(CpuEnv env) throws Exception {
         while (true) {
-            boolean instructionEndsThisCycle = cpu.hasPendingInstructionEndEvent();
-            cpu.cycle();
+            boolean instructionEndsThisCycle = env.cpu.hasPendingInstructionEndEvent();
+            env.emulator.startWithStepPhases(1, env.cpu, (step, manager, preCycle) -> true);
             if (instructionEndsThisCycle) {
                 return;
             }
@@ -399,12 +404,15 @@ public class Cpu65C02OpcodeLevelTest {
         byte[] rom = new byte[ROM_SIZE];
         MemoryBusIIe bus = new MemoryBusIIe(mem, rom);
         Cpu65c02 cpu = new Cpu65c02(bus, 0);
+        PriorityQueue<HardwareManager> queue = new PriorityQueue<HardwareManager>();
+        queue.add(cpu);
+        Emulator emulator = new Emulator(queue, 0);
         cpu.coldReset();
 
         rom[0x3ffc] = (byte) (PROG_PC & 0xFF);
         rom[0x3ffd] = (byte) ((PROG_PC >> 8) & 0xFF);
 
-        return new CpuEnv(mem, bus, cpu, rom);
+        return new CpuEnv(mem, bus, cpu, emulator, rom);
     }
 
     private static RefState randomStateForTrial(Opcode opcode, Random rng) {
