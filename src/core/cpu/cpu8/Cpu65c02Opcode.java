@@ -45,7 +45,13 @@ public enum Cpu65c02Opcode {
 	DEC_ZPG(0xC6, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
 	DEC_ZPG_X(0xD6, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
 	DEC_ABS(0xCE, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
-	DEC_ABS_X(0xDE, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA)));
+	DEC_ABS_X(0xDE, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+
+	ASL_ACC(0x0A, MicroCycleProgram.internalShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_INTERNAL))),
+	ASL_ZPG(0x06, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+	ASL_ZPG_X(0x16, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+	ASL_ABS(0x0E, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+	ASL_ABS_X(0x1E, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA)));
 
 	private final int opcodeByte;
 	private final MicroCycleProgram microcode;
@@ -60,6 +66,8 @@ public enum Cpu65c02Opcode {
 			INC_ZPG, INC_ZPG_X, INC_ABS, INC_ABS_X);
 	private static final EnumSet<Cpu65c02Opcode> DEC_FAMILY = EnumSet.of(
 			DEC_ZPG, DEC_ZPG_X, DEC_ABS, DEC_ABS_X);
+	private static final EnumSet<Cpu65c02Opcode> ASL_FAMILY = EnumSet.of(
+			ASL_ACC, ASL_ZPG, ASL_ZPG_X, ASL_ABS, ASL_ABS_X);
 
 	Cpu65c02Opcode(int opcodeByte, MicroCycleProgram microcode) {
 		this.opcodeByte = opcodeByte & 0xff;
@@ -110,6 +118,14 @@ public enum Cpu65c02Opcode {
 		return buildDecOpcodeBytes();
 	}
 
+	public static EnumSet<Cpu65c02Opcode> aslFamily() {
+		return EnumSet.copyOf(ASL_FAMILY);
+	}
+
+	public static int[] aslOpcodeBytes() {
+		return buildAslOpcodeBytes();
+	}
+
 	private static int[] buildLdaOpcodeBytes() {
 		Cpu65c02Opcode[] ops = LDA_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
@@ -136,6 +152,14 @@ public enum Cpu65c02Opcode {
 
 	private static int[] buildDecOpcodeBytes() {
 		Cpu65c02Opcode[] ops = DEC_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildAslOpcodeBytes() {
+		Cpu65c02Opcode[] ops = ASL_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
 		for( int i = 0; i<ops.length; i++ )
 			bytes[i] = ops[i].opcodeByte();
@@ -196,6 +220,10 @@ public enum Cpu65c02Opcode {
 
 		public static MicroCycleProgram rmwShared(MicroOp... script) {
 			return new MicroCycleProgram(AccessType.AT_RMW, script, script);
+		}
+
+		public static MicroCycleProgram internalShared(MicroOp... script) {
+			return new MicroCycleProgram(AccessType.AT_NONE, script, script);
 		}
 
 		public AccessType accessType() {

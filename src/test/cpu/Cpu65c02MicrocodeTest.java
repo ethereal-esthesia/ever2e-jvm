@@ -59,6 +59,18 @@ public class Cpu65c02MicrocodeTest {
 		}
 	}
 
+	private static final class AslExpect {
+		final int opcode;
+		final MicroOp[] script;
+		final Cpu65c02Microcode.AccessType accessType;
+
+		AslExpect(int opcode, Cpu65c02Microcode.AccessType accessType, MicroOp[] script) {
+			this.opcode = opcode;
+			this.accessType = accessType;
+			this.script = script;
+		}
+	}
+
 	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
 			new LdaExpect(0xA9,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
@@ -121,6 +133,14 @@ public class Cpu65c02MicrocodeTest {
 			new DecExpect(0xD6, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new DecExpect(0xCE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new DecExpect(0xDE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+	};
+
+	private static final AslExpect[] ASL_EXPECTATIONS = new AslExpect[] {
+			new AslExpect(0x0A, Cpu65c02Microcode.AccessType.AT_NONE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_INTERNAL }),
+			new AslExpect(0x06, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new AslExpect(0x16, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new AslExpect(0x0E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new AslExpect(0x1E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 	};
 
 	@Test
@@ -213,6 +233,25 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void aslOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] aslOps = Cpu65c02Opcode.aslFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] aslBytes = Cpu65c02Opcode.aslOpcodeBytes();
+		assertEquals(aslOps.length, aslBytes.length);
+		for( int i = 0; i<aslOps.length; i++ )
+			assertEquals(aslOps[i].opcodeByte(), aslBytes[i]);
+	}
+
+	@Test
+	public void aslOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode asl : Cpu65c02Opcode.aslFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(asl.opcodeByte());
+			assertEquals(asl.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(asl.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(asl.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
 	public void opcodeByteRoundTripsToEnum() {
 		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
 			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
@@ -222,6 +261,8 @@ public class Cpu65c02MicrocodeTest {
 			assertEquals(inc, Cpu65c02Opcode.fromOpcodeByte(inc.opcodeByte()));
 		for( Cpu65c02Opcode dec : Cpu65c02Opcode.decFamily() )
 			assertEquals(dec, Cpu65c02Opcode.fromOpcodeByte(dec.opcodeByte()));
+		for( Cpu65c02Opcode asl : Cpu65c02Opcode.aslFamily() )
+			assertEquals(asl, Cpu65c02Opcode.fromOpcodeByte(asl.opcodeByte()));
 	}
 
 	@Test
@@ -327,6 +368,19 @@ public class Cpu65c02MicrocodeTest {
 		for( DecExpect expect : DEC_EXPECTATIONS ) {
 			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
 			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(true).length);
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void allAslOpcodesHaveExpectedMicrocodeOrder() {
+		for( AslExpect expect : ASL_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.accessType, entry.getAccessType());
 			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(false).length);
 			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(true).length);
 			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(false));
