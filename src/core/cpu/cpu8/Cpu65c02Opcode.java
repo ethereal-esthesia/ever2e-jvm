@@ -23,22 +23,22 @@ public final class Cpu65c02Opcode {
 	}
 
 	public AccessType getAccessType() {
-		Cpu65c02Microcode.OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(opcodeByte);
+		Cpu65c02Microcode.MicroInstr instr = Cpu65c02Microcode.microInstrForByte(opcodeByte);
 		return instr.getAccessType();
 	}
 
 	public MicroOp[] getExpectedMnemonicOrder(boolean pageCrossed) {
-		Cpu65c02Microcode.OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(opcodeByte);
+		Cpu65c02Microcode.MicroInstr instr = Cpu65c02Microcode.microInstrForByte(opcodeByte);
 		return instr.getCycleScript(pageCrossed);
 	}
 
 	public boolean usesMemoryDataRead() {
-		Cpu65c02Microcode.OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(opcodeByte);
+		Cpu65c02Microcode.MicroInstr instr = Cpu65c02Microcode.microInstrForByte(opcodeByte);
 		return instr.usesMemoryDataRead();
 	}
 
 	public int getOperandReadCycleOffset(boolean pageCrossed) {
-		Cpu65c02Microcode.OpcodeMicroInstr instr = Cpu65c02Microcode.microInstrForOpcodeByte(opcodeByte);
+		Cpu65c02Microcode.MicroInstr instr = Cpu65c02Microcode.microInstrForByte(opcodeByte);
 		return instr.getOperandReadCycleOffset(pageCrossed);
 	}
 }

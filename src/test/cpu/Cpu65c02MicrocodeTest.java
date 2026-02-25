@@ -133,4 +133,22 @@ public class Cpu65c02MicrocodeTest {
 			}
 		}
 	}
+
+	@Test
+	public void microContextExposesCpuAndInternalRegisters() {
+		Cpu65c02Microcode.MicroContext ctx = Cpu65c02Microcode.newContext();
+		assertEquals(0, ctx.cpu.a);
+		assertEquals(0, ctx.cpu.x);
+		assertEquals(0, ctx.cpu.y);
+		assertEquals(0, ctx.cpu.pc);
+		assertEquals(0, ctx.internal.effectiveAddress);
+		assertEquals(0, ctx.internal.cycleIndex);
+		assertTrue(!ctx.internal.pageCrossed);
+		ctx.cpu.a = 0x42;
+		ctx.internal.effectiveAddress = 0xC054;
+		ctx.internal.pageCrossed = true;
+		assertEquals(0x42, ctx.cpu.a);
+		assertEquals(0xC054, ctx.internal.effectiveAddress);
+		assertTrue(ctx.internal.pageCrossed);
+	}
 }
