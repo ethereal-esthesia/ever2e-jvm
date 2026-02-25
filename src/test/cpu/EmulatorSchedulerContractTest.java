@@ -1,6 +1,7 @@
 package test.cpu;
 
 import core.cpu.cpu8.Cpu65c02;
+import core.cpu.cpu8.Cpu65c02CycleEstimator;
 import core.cpu.cpu8.Opcode;
 import core.emulator.HardwareManager;
 import core.emulator.machine.Emulator;
@@ -116,6 +117,36 @@ public class EmulatorSchedulerContractTest {
             env.bus.setByte(start + i, bytes[i] & 0xFF);
     }
 
+    private void prepareRepresentativeProgram(Env env, int opcodeByte) {
+        switch (opcodeByte & 0xFF) {
+            case 0xA9: // LDA #imm
+            case 0x09: // ORA #imm
+            case 0x29: // AND #imm
+            case 0x49: // EOR #imm
+            case 0x69: // ADC #imm
+                loadProgram(env, PROG_PC, opcodeByte, 0x42, 0xEA);
+                break;
+            case 0x85: // STA zpg
+                loadProgram(env, PROG_PC, opcodeByte, 0x10, 0xEA);
+                env.cpu.getRegister().setA(0x77);
+                break;
+            case 0xE6: // INC zpg
+            case 0xC6: // DEC zpg
+                loadProgram(env, PROG_PC, opcodeByte, 0x10, 0xEA);
+                env.bus.setByte(0x0010, 0x10);
+                break;
+            case 0x0A: // ASL A
+            case 0x4A: // LSR A
+            case 0x2A: // ROL A
+            case 0x6A: // ROR A
+                loadProgram(env, PROG_PC, opcodeByte, 0xEA, 0xEA);
+                env.cpu.getRegister().setA(0x81);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported representative opcode " + Integer.toHexString(opcodeByte));
+        }
+    }
+
     @Test
     public void equalTimestampManagersRunInStableIdOrder() throws Exception {
         List<String> runLog = new ArrayList<String>();
@@ -178,6 +209,46 @@ public class EmulatorSchedulerContractTest {
         env.emulator.startWithStepPhases(2, env.cpu, (step, manager, preCycle) -> true);
         assertEquals(1, env.cpu.getPendingExecutionEventCount());
         assertTrue(env.cpu.hasPendingInstructionEndEvent());
+    }
+
+    @Test
+    public void representativeMicroQueuedFamiliesShapeExecutionQueueByCycleEstimate() throws Exception {
+        int[] representatives = new int[] {
+                0xA9, // LDA
+                0x85, // STA
+                0xE6, // INC
+                0xC6, // DEC
+                0x0A, // ASL
+                0x4A, // LSR
+                0x2A, // ROL
+                0x6A, // ROR
+                0x09, // ORA
+                0x29, // AND
+                0x49, // EOR
+                0x69  // ADC
+        };
+
+        for (int opcodeByte : representatives) {
+            Env env = createEnv();
+            env.cpu.setResetXOverride(0x00);
+            env.cpu.setResetYOverride(0x00);
+            setVector(env.rom, 0xFFFC, PROG_PC);
+            prepareRepresentativeProgram(env, opcodeByte);
+
+            env.emulator.startWithStepPhases(1, env.cpu, (step, manager, preCycle) -> true); // RES
+
+            int expectedCycles = Cpu65c02CycleEstimator.predictInstructionCycles(
+                    env.bus, env.cpu.getRegister(), Cpu65c02.OPCODE[opcodeByte & 0xFF], PROG_PC);
+            assertEquals(expectedCycles, env.cpu.getPendingExecutionEventCount());
+            if (expectedCycles > 1) {
+                assertTrue(env.cpu.hasPendingInFlightMicroEvent());
+            } else {
+                assertTrue(env.cpu.hasPendingInstructionEndEvent());
+            }
+
+            env.emulator.startWithStepPhases(expectedCycles + 1L, env.cpu, (step, manager, preCycle) -> true);
+            assertTrue(env.cpu.getPendingExecutionEventCount() >= 1);
+        }
     }
 
     @Test
@@ -253,9 +324,12 @@ public class EmulatorSchedulerContractTest {
         env.bus.setByte(0x0020, 0x00);
         env.bus.setByte(0x0030, 0x00);
 
-        env.emulator.startWithStepPhases(5, env.cpu, (step, manager, preCycle) -> {
+        env.emulator.startWithStepPhases(200, env.cpu, (step, manager, preCycle) -> {
             if (preCycle && step == 3) {
                 env.cpu.setInterruptPending(Cpu65c02.INTERRUPT_IRQ);
+            }
+            if (!preCycle && env.bus.getByte(0x0030) == 1 && env.bus.getByte(0x0020) == 1) {
+                return false;
             }
             return true;
         });

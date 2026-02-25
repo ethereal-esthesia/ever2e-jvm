@@ -16,7 +16,7 @@ final class CpuExecutionPlanner {
 		}
 	}
 
-	private static final EnumSet<Cpu65c02Opcode> MICRO_QUEUED_FAMILY = Cpu65c02Opcode.ldaFamily();
+	private static final EnumSet<Cpu65c02Opcode> MICRO_QUEUED_FAMILY = buildMicroQueuedFamily();
 
 	private final MemoryBusIIe memory;
 	private final Register reg;
@@ -38,5 +38,22 @@ final class CpuExecutionPlanner {
 			return false;
 		Cpu65c02Opcode mapped = Cpu65c02Opcode.fromOpcodeByte(op.getMachineCode().intValue());
 		return mapped!=null && MICRO_QUEUED_FAMILY.contains(mapped);
+	}
+
+	private static EnumSet<Cpu65c02Opcode> buildMicroQueuedFamily() {
+		EnumSet<Cpu65c02Opcode> out = EnumSet.noneOf(Cpu65c02Opcode.class);
+		out.addAll(Cpu65c02Opcode.ldaFamily());
+		out.addAll(Cpu65c02Opcode.staFamily());
+		out.addAll(Cpu65c02Opcode.incFamily());
+		out.addAll(Cpu65c02Opcode.decFamily());
+		out.addAll(Cpu65c02Opcode.aslFamily());
+		out.addAll(Cpu65c02Opcode.lsrFamily());
+		out.addAll(Cpu65c02Opcode.rolFamily());
+		out.addAll(Cpu65c02Opcode.rorFamily());
+		out.addAll(Cpu65c02Opcode.oraFamily());
+		out.addAll(Cpu65c02Opcode.andFamily());
+		out.addAll(Cpu65c02Opcode.eorFamily());
+		out.addAll(Cpu65c02Opcode.adcFamily());
+		return out;
 	}
 }

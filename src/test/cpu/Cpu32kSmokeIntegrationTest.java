@@ -18,7 +18,7 @@ public class Cpu32kSmokeIntegrationTest {
 		String pasteFile = System.getProperty(
 				"ever2e.smoke32k.pasteFile",
 				"ROMS/opcode_smoke_loader_hgr_mem_32k.mon");
-		String steps = System.getProperty("ever2e.smoke32k.steps", "80000000");
+		String steps = System.getProperty("ever2e.smoke32k.steps", "120000000");
 		String haltExecution = System.getProperty("ever2e.smoke32k.haltExecution", "0x6A45,0x6A33");
 
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
