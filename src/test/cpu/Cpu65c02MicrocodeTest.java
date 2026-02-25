@@ -3,6 +3,7 @@ package test.cpu;
 import org.junit.Test;
 
 import core.cpu.cpu8.Cpu65c02Opcode;
+import core.cpu.cpu8.Cpu65c02Opcode.LdaOpcode;
 import core.cpu.cpu8.Cpu65c02Microcode;
 import core.cpu.cpu8.Cpu65c02Microcode.MicroOp;
 
@@ -77,6 +78,15 @@ public class Cpu65c02MicrocodeTest {
 		MicroOp[] ops = MicroOp.values();
 		for( int i = 0; i<ops.length; i++ )
 			assertEquals(i, ops[i].code());
+	}
+
+	@Test
+	public void ldaOpcodeEnumMatchesOpcodeByteList() {
+		LdaOpcode[] ldaOps = LdaOpcode.values();
+		int[] ldaBytes = Cpu65c02Opcode.ldaOpcodeBytes();
+		assertEquals(ldaOps.length, ldaBytes.length);
+		for( int i = 0; i<ldaOps.length; i++ )
+			assertEquals(ldaOps[i].opcodeByte(), ldaBytes[i]);
 	}
 
 	@Test
