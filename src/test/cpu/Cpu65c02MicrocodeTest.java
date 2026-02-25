@@ -49,6 +49,16 @@ public class Cpu65c02MicrocodeTest {
 		}
 	}
 
+	private static final class DecExpect {
+		final int opcode;
+		final MicroOp[] script;
+
+		DecExpect(int opcode, MicroOp[] script) {
+			this.opcode = opcode;
+			this.script = script;
+		}
+	}
+
 	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
 			new LdaExpect(0xA9,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
@@ -104,6 +114,13 @@ public class Cpu65c02MicrocodeTest {
 			new IncExpect(0xF6, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new IncExpect(0xEE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new IncExpect(0xFE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+	};
+
+	private static final DecExpect[] DEC_EXPECTATIONS = new DecExpect[] {
+			new DecExpect(0xC6, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new DecExpect(0xD6, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new DecExpect(0xCE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new DecExpect(0xDE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 	};
 
 	@Test
@@ -177,6 +194,25 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void decOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] decOps = Cpu65c02Opcode.decFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] decBytes = Cpu65c02Opcode.decOpcodeBytes();
+		assertEquals(decOps.length, decBytes.length);
+		for( int i = 0; i<decOps.length; i++ )
+			assertEquals(decOps[i].opcodeByte(), decBytes[i]);
+	}
+
+	@Test
+	public void decOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode dec : Cpu65c02Opcode.decFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(dec.opcodeByte());
+			assertEquals(dec.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(dec.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(dec.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
 	public void opcodeByteRoundTripsToEnum() {
 		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
 			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
@@ -184,6 +220,8 @@ public class Cpu65c02MicrocodeTest {
 			assertEquals(sta, Cpu65c02Opcode.fromOpcodeByte(sta.opcodeByte()));
 		for( Cpu65c02Opcode inc : Cpu65c02Opcode.incFamily() )
 			assertEquals(inc, Cpu65c02Opcode.fromOpcodeByte(inc.opcodeByte()));
+		for( Cpu65c02Opcode dec : Cpu65c02Opcode.decFamily() )
+			assertEquals(dec, Cpu65c02Opcode.fromOpcodeByte(dec.opcodeByte()));
 	}
 
 	@Test
@@ -275,6 +313,18 @@ public class Cpu65c02MicrocodeTest {
 	@Test
 	public void allIncOpcodesHaveExpectedMicrocodeOrder() {
 		for( IncExpect expect : INC_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(true).length);
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void allDecOpcodesHaveExpectedMicrocodeOrder() {
+		for( DecExpect expect : DEC_EXPECTATIONS ) {
 			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
 			assertEquals(expect.opcode, entry.getOpcodeByte());
 			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(false).length);
