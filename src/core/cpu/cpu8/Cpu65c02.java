@@ -402,12 +402,33 @@ public class Cpu65c02 extends HardwareManager {
 
 	}
 
-	private void ptrAdd( int i ) {
+	private void ptrAdd( int i, boolean addPageCrossCycle ) {
 		int oldPage = operandPtr>>8;
 		operandPtr += i;
 		operandPtr &= 0xffff;
-		if( operandPtr>>8 != oldPage )
+		if( addPageCrossCycle && operandPtr>>8 != oldPage )
 			cycleCount++;
+	}
+
+	private boolean addsPageCrossCycleForAbsIndexedRead(Opcode opcode, AddressMode mode) {
+		if( opcode==null || opcode.getMnemonic()==null )
+			return false;
+		switch( opcode.getMnemonic() ) {
+			case ADC:
+			case AND:
+			case CMP:
+			case EOR:
+			case LDA:
+			case ORA:
+			case SBC:
+				return true;
+			case LDY:
+				return mode==AddressMode.ABS_X;
+			case LDX:
+				return mode==AddressMode.ABS_Y;
+			default:
+				return false;
+		}
 	}
 
 	public Cpu65c02( MemoryBusIIe memory, long unitsPerCycle ) {
@@ -549,15 +570,15 @@ public class Cpu65c02 extends HardwareManager {
 				// [ADL:ADH] + X
 				// +2 byte
 				operandPtr = memory.getWord16LittleEndian(operandCounter);
-				ptrAdd(reg.getX());
+				ptrAdd(reg.getX(), addsPageCrossCycleForAbsIndexedRead(opcode, AddressMode.ABS_X));
 				break;
-	
+
 			case ABS_Y:
 				// Absolute, Y
 				// [ADL:ADH] + Y
 				// +2 byte
 				operandPtr = memory.getWord16LittleEndian(operandCounter);
-				ptrAdd(reg.getY());
+				ptrAdd(reg.getY(), addsPageCrossCycleForAbsIndexedRead(opcode, AddressMode.ABS_Y));
 				break;
 			
 			case REL:
@@ -580,7 +601,7 @@ public class Cpu65c02 extends HardwareManager {
 				// PCL:PCH = (ADL:ADH + X)
 				// +2 byte
 				operandPtr = memory.getWord16LittleEndian(operandCounter);
-				ptrAdd(reg.getX());
+				ptrAdd(reg.getX(), false);
 				operandPtr = memory.getWord16LittleEndian(operandPtr);
 				break;
 	

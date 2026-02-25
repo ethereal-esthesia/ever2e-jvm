@@ -1,0 +1,130 @@
+import core.cpu.cpu8.Cpu65c02;
+import core.cpu.cpu8.Register;
+import core.exception.HardwareException;
+import core.memory.memory8.Memory8;
+import core.memory.memory8.MemoryBusIIe;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+
+public class Cpu65c02CycleTimingTest {
+
+    private static final int MEM_SIZE = 0x20000;
+    private static final int ROM_SIZE = 0x4000;
+    private static final int PROG_PC = 0x0200;
+
+    private static final class CpuEnv {
+        final MemoryBusIIe bus;
+        final Cpu65c02 cpu;
+        final Register reg;
+
+        CpuEnv(MemoryBusIIe bus, Cpu65c02 cpu) {
+            this.bus = bus;
+            this.cpu = cpu;
+            this.reg = cpu.getRegister();
+        }
+    }
+
+    private CpuEnv createEnv() throws HardwareException {
+        Memory8 mem = new Memory8(MEM_SIZE);
+        byte[] rom = new byte[ROM_SIZE];
+        MemoryBusIIe bus = new MemoryBusIIe(mem, rom);
+        Cpu65c02 cpu = new Cpu65c02(bus, 0);
+        cpu.coldReset();
+        rom[0x3ffc] = (byte) (PROG_PC & 0xFF);
+        rom[0x3ffd] = (byte) ((PROG_PC >> 8) & 0xFF);
+        return new CpuEnv(bus, cpu);
+    }
+
+    private void loadProgram(CpuEnv env, int... bytes) {
+        for (int i = 0; i < bytes.length; i++) {
+            env.bus.setByte(PROG_PC + i, bytes[i] & 0xFF);
+        }
+    }
+
+    @Test
+    public void ldaAbsXAddsCycleOnPageCrossOnly() throws Exception {
+        CpuEnv env = createEnv();
+        loadProgram(env, 0xBD, 0xFE, 0x20); // LDA $20FE,X
+        env.cpu.cycle(); // execute reset after program bytes are loaded
+        env.reg.setX(0x01);
+        env.bus.setByte(0x20FF, 0x11);
+        env.cpu.cycle();
+        assertEquals(4, env.cpu.getLastInstructionCycleCount());
+
+        env = createEnv();
+        loadProgram(env, 0xBD, 0xFF, 0x20); // LDA $20FF,X
+        env.cpu.cycle();
+        env.reg.setX(0x01);
+        env.bus.setByte(0x2100, 0x22);
+        env.cpu.cycle();
+        assertEquals(5, env.cpu.getLastInstructionCycleCount());
+    }
+
+    @Test
+    public void ldaAbsYAddsCycleOnPageCrossOnly() throws Exception {
+        CpuEnv env = createEnv();
+        loadProgram(env, 0xB9, 0xFE, 0x20); // LDA $20FE,Y
+        env.cpu.cycle();
+        env.reg.setY(0x01);
+        env.bus.setByte(0x20FF, 0x33);
+        env.cpu.cycle();
+        assertEquals(4, env.cpu.getLastInstructionCycleCount());
+
+        env = createEnv();
+        loadProgram(env, 0xB9, 0xFF, 0x20); // LDA $20FF,Y
+        env.cpu.cycle();
+        env.reg.setY(0x01);
+        env.bus.setByte(0x2100, 0x44);
+        env.cpu.cycle();
+        assertEquals(5, env.cpu.getLastInstructionCycleCount());
+    }
+
+    @Test
+    public void ldaIndYAddsCycleOnPageCrossOnly() throws Exception {
+        CpuEnv env = createEnv();
+        loadProgram(env, 0xB1, 0x10); // LDA ($10),Y
+        env.cpu.cycle();
+        env.reg.setY(0x01);
+        env.bus.setByte(0x0010, 0xFE);
+        env.bus.setByte(0x0011, 0x20);
+        env.bus.setByte(0x20FF, 0x55);
+        env.cpu.cycle();
+        assertEquals(5, env.cpu.getLastInstructionCycleCount());
+
+        env = createEnv();
+        loadProgram(env, 0xB1, 0x10); // LDA ($10),Y
+        env.cpu.cycle();
+        env.reg.setY(0x01);
+        env.bus.setByte(0x0010, 0xFF);
+        env.bus.setByte(0x0011, 0x20);
+        env.bus.setByte(0x2100, 0x66);
+        env.cpu.cycle();
+        assertEquals(6, env.cpu.getLastInstructionCycleCount());
+    }
+
+    @Test
+    public void jmpAbsIndXHasNoPageCrossPenalty() throws Exception {
+        CpuEnv env = createEnv();
+        loadProgram(env, 0x7C, 0xFF, 0x20); // JMP ($20FF,X)
+        env.cpu.cycle();
+        env.reg.setX(0x01);
+        env.bus.setByte(0x2100, 0x34);
+        env.bus.setByte(0x2101, 0x12);
+        env.cpu.cycle();
+        assertEquals(6, env.cpu.getLastInstructionCycleCount());
+        assertEquals(0x1234, env.cpu.getPendingPC());
+    }
+
+    @Test
+    public void staAbsXHasNoExtraPageCrossCycle() throws Exception {
+        CpuEnv env = createEnv();
+        loadProgram(env, 0x9D, 0xFF, 0x20); // STA $20FF,X
+        env.cpu.cycle();
+        env.reg.setA(0xA5);
+        env.reg.setX(0x01);
+        env.cpu.cycle();
+        assertEquals(5, env.cpu.getLastInstructionCycleCount());
+        assertEquals(0xA5, env.bus.getByte(0x2100));
+    }
+}

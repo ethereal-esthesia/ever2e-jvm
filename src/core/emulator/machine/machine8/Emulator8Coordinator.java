@@ -614,7 +614,7 @@ public class Emulator8Coordinator {
 	   			if( finalHeadlessProbe!=null && preCycle && manager==cpu && finalFloatingBusOpcodeTiming ) {
 	   				int effectiveAddr = estimatePendingReadAddress(cpu, bus);
 	   				if( effectiveAddr>=0xc000 && effectiveAddr<=0xc0ff ) {
-	   					int preCycles = Math.max(0, cpu.getPendingOpcode().getCycleTime()-1);
+	   					int preCycles = estimatePendingPreReadCycles(cpu, bus);
 	   					if( preCycles>0 ) {
 	   						finalHeadlessProbe.advanceCycles(preCycles);
 	   						pendingPreAdvancedCycles[0] = preCycles;
@@ -793,7 +793,7 @@ public class Emulator8Coordinator {
 	   			if( finalHeadlessProbe!=null && preCycle && manager==cpu && finalFloatingBusOpcodeTiming ) {
 	   				int effectiveAddr = estimatePendingReadAddress(cpu, bus);
 	   				if( effectiveAddr>=0xc000 && effectiveAddr<=0xc0ff ) {
-	   					int preCycles = Math.max(0, cpu.getPendingOpcode().getCycleTime()-1);
+	   					int preCycles = estimatePendingPreReadCycles(cpu, bus);
 	   					if( preCycles>0 ) {
 	   						finalHeadlessProbe.advanceCycles(preCycles);
 	   						pendingPreAdvancedCycles[0] = preCycles;
@@ -899,6 +899,64 @@ public class Emulator8Coordinator {
 			}
 			default:
 				return -1;
+		}
+	}
+
+	private static int estimatePendingPreReadCycles(Cpu65c02 cpu, MemoryBus8 bus) {
+		Opcode opcode = cpu.getPendingOpcode();
+		if( opcode==null || opcode.getMnemonic()==null || !isMemoryReadMnemonic(opcode.getMnemonic()) )
+			return 0;
+		int preCycles = Math.max(0, opcode.getCycleTime()-1);
+		int pc = cpu.getPendingPC() & 0xffff;
+		int x = cpu.getRegister().getX() & 0xff;
+		int y = cpu.getRegister().getY() & 0xff;
+		switch( opcode.getAddressMode() ) {
+			case ABS_X: {
+				int base = bus.getWord16LittleEndian((pc+1)&0xffff) & 0xffff;
+				int indexed = (base + x) & 0xffff;
+				if( (base>>8)!=(indexed>>8) && addsAbsIndexedPageCrossReadCycle(opcode.getMnemonic(), Cpu65c02.AddressMode.ABS_X) )
+					preCycles++;
+				break;
+			}
+			case ABS_Y: {
+				int base = bus.getWord16LittleEndian((pc+1)&0xffff) & 0xffff;
+				int indexed = (base + y) & 0xffff;
+				if( (base>>8)!=(indexed>>8) && addsAbsIndexedPageCrossReadCycle(opcode.getMnemonic(), Cpu65c02.AddressMode.ABS_Y) )
+					preCycles++;
+				break;
+			}
+			case IND_Y: {
+				int zp = bus.getByte((pc+1)&0xffff) & 0xff;
+				int base = bus.getWord16LittleEndian(zp, 0xff) & 0xffff;
+				int indexed = (base + y) & 0xffff;
+				if( (base>>8)!=(indexed>>8) && opcode.getMnemonic()!=Cpu65c02.OpcodeMnemonic.STA )
+					preCycles++;
+				break;
+			}
+			default:
+				break;
+		}
+		return preCycles;
+	}
+
+	private static boolean addsAbsIndexedPageCrossReadCycle(Cpu65c02.OpcodeMnemonic mnemonic, Cpu65c02.AddressMode mode) {
+		if( mnemonic==null )
+			return false;
+		switch( mnemonic ) {
+			case ADC:
+			case AND:
+			case CMP:
+			case EOR:
+			case LDA:
+			case ORA:
+			case SBC:
+				return true;
+			case LDY:
+				return mode==Cpu65c02.AddressMode.ABS_X;
+			case LDX:
+				return mode==Cpu65c02.AddressMode.ABS_Y;
+			default:
+				return false;
 		}
 	}
 
