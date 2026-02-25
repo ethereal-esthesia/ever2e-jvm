@@ -107,6 +107,22 @@ public class Cpu65c02MicrocodeTest {
 		}
 	}
 
+	private static final class OraExpect {
+		final int opcode;
+		final MicroOp[] noCross;
+		final MicroOp[] cross;
+		final int readOffsetNoCross;
+		final int readOffsetCross;
+
+		OraExpect(int opcode, MicroOp[] noCross, MicroOp[] cross, int readOffsetNoCross, int readOffsetCross) {
+			this.opcode = opcode;
+			this.noCross = noCross;
+			this.cross = cross;
+			this.readOffsetNoCross = readOffsetNoCross;
+			this.readOffsetCross = readOffsetCross;
+		}
+	}
+
 	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
 			new LdaExpect(0xA9,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
@@ -201,6 +217,45 @@ public class Cpu65c02MicrocodeTest {
 			new RorExpect(0x76, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new RorExpect(0x6E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new RorExpect(0x7E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+	};
+
+	private static final OraExpect[] ORA_EXPECTATIONS = new OraExpect[] {
+			new OraExpect(0x09,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					1, 1),
+			new OraExpect(0x05,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					2, 2),
+			new OraExpect(0x15,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 3),
+			new OraExpect(0x0D,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					3, 3),
+			new OraExpect(0x1D,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new OraExpect(0x19,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new OraExpect(0x01,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					5, 5),
+			new OraExpect(0x11,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					4, 5),
+			new OraExpect(0x12,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					4, 4),
 	};
 
 	@Test
@@ -369,6 +424,25 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void oraOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] oraOps = Cpu65c02Opcode.oraFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] oraBytes = Cpu65c02Opcode.oraOpcodeBytes();
+		assertEquals(oraOps.length, oraBytes.length);
+		for( int i = 0; i<oraOps.length; i++ )
+			assertEquals(oraOps[i].opcodeByte(), oraBytes[i]);
+	}
+
+	@Test
+	public void oraOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode ora : Cpu65c02Opcode.oraFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(ora.opcodeByte());
+			assertEquals(ora.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(ora.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(ora.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
 	public void opcodeByteRoundTripsToEnum() {
 		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
 			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
@@ -386,6 +460,8 @@ public class Cpu65c02MicrocodeTest {
 			assertEquals(rol, Cpu65c02Opcode.fromOpcodeByte(rol.opcodeByte()));
 		for( Cpu65c02Opcode ror : Cpu65c02Opcode.rorFamily() )
 			assertEquals(ror, Cpu65c02Opcode.fromOpcodeByte(ror.opcodeByte()));
+		for( Cpu65c02Opcode ora : Cpu65c02Opcode.oraFamily() )
+			assertEquals(ora, Cpu65c02Opcode.fromOpcodeByte(ora.opcodeByte()));
 	}
 
 	@Test
@@ -447,6 +523,23 @@ public class Cpu65c02MicrocodeTest {
 	@Test
 	public void allLdaOpcodesHaveExpectedMicrocodeOrder() {
 		for( LdaExpect expect : LDA_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertTrue(entry.usesMemoryDataRead());
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.noCross.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.cross.length, entry.getExpectedMnemonicOrder(true).length);
+			for( int i = 0; i<expect.noCross.length; i++ )
+				assertEquals(expect.noCross[i], entry.getExpectedMnemonicOrder(false)[i]);
+			for( int i = 0; i<expect.cross.length; i++ )
+				assertEquals(expect.cross[i], entry.getExpectedMnemonicOrder(true)[i]);
+			assertEquals(expect.readOffsetNoCross, entry.getOperandReadCycleOffset(false));
+			assertEquals(expect.readOffsetCross, entry.getOperandReadCycleOffset(true));
+		}
+	}
+
+	@Test
+	public void allOraOpcodesHaveExpectedMicrocodeOrder() {
+		for( OraExpect expect : ORA_EXPECTATIONS ) {
 			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
 			assertTrue(entry.usesMemoryDataRead());
 			assertEquals(expect.opcode, entry.getOpcodeByte());

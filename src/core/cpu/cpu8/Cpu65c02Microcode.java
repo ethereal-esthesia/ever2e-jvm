@@ -152,6 +152,10 @@ public final class Cpu65c02Microcode {
 			Cpu65c02Opcode.MicroCycleProgram program = ror.microcode();
 			set(table, ror.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
 		}
+		for( Cpu65c02Opcode ora : Cpu65c02Opcode.oraFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = ora.microcode();
+			set(table, ora.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
 
 		return table;
 	}
