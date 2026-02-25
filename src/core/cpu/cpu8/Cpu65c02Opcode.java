@@ -1,5 +1,7 @@
 package core.cpu.cpu8;
 
+import java.util.Arrays;
+
 import core.cpu.cpu8.Cpu65c02Microcode.AccessType;
 import core.cpu.cpu8.Cpu65c02Microcode.MicroOp;
 
@@ -8,6 +10,7 @@ import core.cpu.cpu8.Cpu65c02Microcode.MicroOp;
  */
 public final class Cpu65c02Opcode {
 
+	private static final int[] LDA_OPCODE_BYTES = new int[] { 0xA9, 0xA5, 0xB5, 0xAD, 0xBD, 0xB9, 0xA1, 0xB1, 0xB2 };
 	private final int opcodeByte;
 
 	public Cpu65c02Opcode(int opcodeByte) {
@@ -40,5 +43,9 @@ public final class Cpu65c02Opcode {
 	public int getOperandReadCycleOffset(boolean pageCrossed) {
 		Cpu65c02Microcode.MicroInstr instr = Cpu65c02Microcode.microInstrForByte(opcodeByte);
 		return instr.getOperandReadCycleOffset(pageCrossed);
+	}
+
+	public static int[] ldaOpcodeBytes() {
+		return Arrays.copyOf(LDA_OPCODE_BYTES, LDA_OPCODE_BYTES.length);
 	}
 }

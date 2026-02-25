@@ -74,7 +74,7 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void allLdaOpcodesHaveExpectedMicrocodeOrder() {
-		for( int op : Cpu65c02Microcode.ldaOpcodeBytes() ) {
+		for( int op : Cpu65c02Opcode.ldaOpcodeBytes() ) {
 			Cpu65c02Opcode entry = Cpu65c02Microcode.opcodeForByte(op);
 			MicroOp[] noCross = entry.getExpectedMnemonicOrder(false);
 			assertEquals(MicroOp.M_FETCH_OPCODE, noCross[0]);

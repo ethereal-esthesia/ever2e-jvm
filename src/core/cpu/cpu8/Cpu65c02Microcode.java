@@ -96,7 +96,6 @@ public final class Cpu65c02Microcode {
 		}
 	}
 
-	private static final int[] LDA_OPCODE_BYTES = new int[] { 0xA9, 0xA5, 0xB5, 0xAD, 0xBD, 0xB9, 0xA1, 0xB1, 0xB2 };
 	private static final MicroInstr[] TABLE = buildTable();
 
 	private Cpu65c02Microcode() {
@@ -164,10 +163,6 @@ public final class Cpu65c02Microcode {
 
 	public static Cpu65c02Opcode opcodeForByte(int opcodeByte) {
 		return new Cpu65c02Opcode(opcodeByte & 0xff);
-	}
-
-	public static int[] ldaOpcodeBytes() {
-		return Arrays.copyOf(LDA_OPCODE_BYTES, LDA_OPCODE_BYTES.length);
 	}
 
 	public static MicroContext newContext() {
