@@ -10,16 +10,14 @@ import core.emulator.machine.machine8.Emulator8Coordinator;
 
 import static org.junit.Assert.assertTrue;
 
-public class Cpu32kSmokeIntegrationTest {
+public class Cpu32kLongRunIntegrationTest {
 
 	@Test
-	public void opcodeSmoke32kReachesPassLoop() throws Exception {
-		String emuFile = System.getProperty("ever2e.smoke32k.emu", "ROMS/Apple2e.emu");
-		String pasteFile = System.getProperty(
-				"ever2e.smoke32k.pasteFile",
-				"ROMS/opcode_smoke_loader_hgr_mem_32k.mon");
-		String steps = System.getProperty("ever2e.smoke32k.steps", "120000000");
-		String haltExecution = System.getProperty("ever2e.smoke32k.haltExecution", "0x6A45,0x6A33");
+	public void opcodeLongRun32kReachesPassLoop() throws Exception {
+		String emuFile = getProp("ever2e.long32k.emu", "ever2e.smoke32k.emu", "ROMS/Apple2e.emu");
+		String pasteFile = getProp("ever2e.long32k.pasteFile", "ever2e.smoke32k.pasteFile", "ROMS/opcode_smoke_loader_hgr_mem_32k.mon");
+		String steps = getProp("ever2e.long32k.steps", "ever2e.smoke32k.steps", "120000000");
+		String haltExecution = getProp("ever2e.long32k.haltExecution", "ever2e.smoke32k.haltExecution", "0x6A45,0x6A33");
 
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		PrintStream originalOut = System.out;
@@ -47,9 +45,19 @@ public class Cpu32kSmokeIntegrationTest {
 		}
 
 		String stdout = output.toString(StandardCharsets.UTF_8);
-		assertTrue("32k smoke should stop at pass loop 0x6A45.\nOutput:\n"+stdout,
+		assertTrue("32k long-run should stop at pass loop 0x6A45.\nOutput:\n"+stdout,
 				stdout.contains("Stopped at PC=6A45"));
-		assertTrue("32k smoke should not stop at fail loop 0x6A33.\nOutput:\n"+stdout,
+		assertTrue("32k long-run should not stop at fail loop 0x6A33.\nOutput:\n"+stdout,
 				!stdout.contains("Stopped at PC=6A33"));
+	}
+
+	private static String getProp(String primary, String legacy, String fallback) {
+		String value = System.getProperty(primary);
+		if( value!=null )
+			return value;
+		value = System.getProperty(legacy);
+		if( value!=null )
+			return value;
+		return fallback;
 	}
 }
