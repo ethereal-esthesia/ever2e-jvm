@@ -158,10 +158,10 @@ Queue a BASIC program file for typed input:
 ./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 200000 --paste-file samples/VBL_TEST.BAS"
 ```
 
-Queue the committed paste-loader smoke test and execute:
+Queue the committed 16k paste-loader check and execute:
 
 ```bash
-./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon --print-text-at-exit --debug"
+./gradlew runHeadless --args="ROMS/Apple2e.emu --steps 80000000 --text-console --paste-file /Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon --halt-execution 0x33D2,0x33C0 --require-halt-pc 0x33D2 --print-text-at-exit --no-sound"
 ```
 
 Force memtest long-run success checkpoint (`System OK` text + stable PC):
@@ -178,15 +178,19 @@ One-command smoke task:
 
 Defaults used by `smoke`:
 - `smokeEmuFile=ROMS/Apple2e.emu`
-- `smokePasteFile=/Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon`
-- `smokeSteps=80000000`
-- `smokeHaltExecution=0x33D2,0x33C0`
+- `smokeSteps=250000`
+- `smokePasteFile` is optional (unset by default)
+- `smokeHaltExecution` is optional (unset by default)
+- `smokeRequireHaltPc` is optional (unset by default)
 - `--no-sound` is enabled by default for silent headless smoke runs
+
+The 32k opcode smoke scenario now runs under `gradlew test` via
+`test.cpu.Cpu32kSmokeIntegrationTest` (default halt list `0x6A45,0x6A33`).
 
 Override example:
 
 ```bash
-./gradlew smoke -PsmokeSteps=120000000 -PsmokeHaltExecution=0x1234,0x5678
+./gradlew smoke -PsmokeSteps=120000000 -PsmokePasteFile=/Users/shane/Project/ever2e-jvm/ROMS/opcode_smoke_loader_hgr_mem_16k.mon -PsmokeHaltExecution=0x33D2,0x33C0 -PsmokeRequireHaltPc=0x33D2
 ```
 
 ## Known gaps
