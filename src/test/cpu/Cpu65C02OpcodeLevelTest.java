@@ -1,4 +1,4 @@
-package test;
+package test.cpu;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Random;
 
 import com.sun.management.OperatingSystemMXBean;
+import org.junit.Test;
 
 import core.cpu.cpu8.Cpu65c02;
 import core.cpu.cpu8.Cpu65c02.AddressMode;
@@ -28,7 +29,7 @@ import core.memory.memory8.MemoryBusIIe;
  * This runs one instruction per trial on Cpu65c02 and compares final CPU state
  * with an independent reference model using the same initial state and memory.
  */
-public class Cpu65c02RandomizedOpcodeHarness {
+public class Cpu65C02OpcodeLevelTest {
 
     private static final int MEM_SIZE = 0x20000;
     private static final int ROM_SIZE = 0x4000;
@@ -246,6 +247,13 @@ public class Cpu65c02RandomizedOpcodeHarness {
         if (!failures.isEmpty()) {
             System.exit(1);
         }
+    }
+
+    @Test
+    public void randomizedOpcodeReferenceParity() throws Exception {
+        String trials = System.getProperty("ever2e.cpu.randomized.trials", "8");
+        String seed = System.getProperty("ever2e.cpu.randomized.seed", "6619714");
+        main(new String[] {"--trials", trials, "--seed", seed});
     }
 
     private static void runRngSelfTest(Random rng, int count, long baseSeed, long cycleXor, long seed) {

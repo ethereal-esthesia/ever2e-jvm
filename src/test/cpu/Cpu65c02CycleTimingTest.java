@@ -1,3 +1,5 @@
+package test.cpu;
+
 import core.cpu.cpu8.Cpu65c02;
 import core.cpu.cpu8.Register;
 import core.exception.HardwareException;
