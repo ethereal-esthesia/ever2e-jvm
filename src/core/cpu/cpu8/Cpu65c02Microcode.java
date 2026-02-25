@@ -79,6 +79,7 @@ public final class Cpu65c02Microcode {
 	}
 
 	private static final OpcodeMicroInstr[] OPCODE_MICROCODE = buildOpcodeTable();
+	private static final int[] LDA_OPCODE_BYTES = new int[] { 0xA9, 0xA5, 0xB5, 0xAD, 0xBD, 0xB9, 0xA1, 0xB1, 0xB2 };
 
 	private Cpu65c02Microcode() {
 	}
@@ -245,5 +246,9 @@ public final class Cpu65c02Microcode {
 	public static int operandReadCycleOffset(Opcode opcode, boolean pageCrossed) {
 		OpcodeMicroInstr instr = microInstrForOpcode(opcode);
 		return instr==null ? -1 : instr.getOperandReadCycleOffset(pageCrossed);
+	}
+
+	public static int[] ldaOpcodeBytes() {
+		return Arrays.copyOf(LDA_OPCODE_BYTES, LDA_OPCODE_BYTES.length);
 	}
 }
