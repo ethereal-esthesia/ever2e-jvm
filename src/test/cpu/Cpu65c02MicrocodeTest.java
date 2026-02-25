@@ -3,7 +3,7 @@ package test.cpu;
 import org.junit.Test;
 
 import core.cpu.cpu8.Cpu65c02Opcode;
-import core.cpu.cpu8.Cpu65c02Opcode.LdaOpcode;
+import core.cpu.cpu8.Cpu65c02OpcodeView;
 import core.cpu.cpu8.Cpu65c02Microcode;
 import core.cpu.cpu8.Cpu65c02Microcode.MicroOp;
 
@@ -83,7 +83,7 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void ldaOpcodeEnumMatchesOpcodeByteList() {
-		LdaOpcode[] ldaOps = LdaOpcode.values();
+		Cpu65c02Opcode[] ldaOps = Cpu65c02Opcode.values();
 		int[] ldaBytes = Cpu65c02Opcode.ldaOpcodeBytes();
 		assertEquals(ldaOps.length, ldaBytes.length);
 		for( int i = 0; i<ldaOps.length; i++ )
@@ -92,8 +92,8 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void ldaOpcodeEnumProgramsDriveResolvedMicrocode() {
-		for( LdaOpcode lda : LdaOpcode.values() ) {
-			Cpu65c02Opcode entry = Cpu65c02Microcode.opcodeForByte(lda.opcodeByte());
+		for( Cpu65c02Opcode lda : Cpu65c02Opcode.values() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(lda.opcodeByte());
 			assertEquals(lda.microcode().accessType(), entry.getAccessType());
 			assertArrayEquals(lda.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
 			assertArrayEquals(lda.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
@@ -102,7 +102,7 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void ldaAbsoluteCycleScript() {
-		Cpu65c02Opcode instr = Cpu65c02Microcode.opcodeForByte(0xAD); // LDA abs
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0xAD); // LDA abs
 		assertEquals(MicroOp.M_FETCH_OPCODE, instr.getExpectedMnemonicOrder(false)[0]);
 		assertEquals(MicroOp.M_FETCH_OPERAND_LO, instr.getExpectedMnemonicOrder(false)[1]);
 		assertEquals(MicroOp.M_FETCH_OPERAND_HI, instr.getExpectedMnemonicOrder(false)[2]);
@@ -112,7 +112,7 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void ldaAbsoluteXCrossAddsDummyRead() {
-		Cpu65c02Opcode instr = Cpu65c02Microcode.opcodeForByte(0xBD); // LDA abs,X
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0xBD); // LDA abs,X
 		MicroOp[] noCross = instr.getExpectedMnemonicOrder(false);
 		MicroOp[] cross = instr.getExpectedMnemonicOrder(true);
 		assertEquals(4, noCross.length);
@@ -126,7 +126,7 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void staAbsoluteHasWriteCycle() {
-		Cpu65c02Opcode instr = Cpu65c02Microcode.opcodeForByte(0x8D); // STA abs
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0x8D); // STA abs
 		MicroOp[] script = instr.getExpectedMnemonicOrder(false);
 		assertEquals(MicroOp.M_FETCH_OPCODE, script[0]);
 		assertEquals(MicroOp.M_FETCH_OPERAND_LO, script[1]);
@@ -137,7 +137,7 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void incZeroPageIsReadModifyWrite() {
-		Cpu65c02Opcode instr = Cpu65c02Microcode.opcodeForByte(0xE6); // INC zpg
+		Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(0xE6); // INC zpg
 		MicroOp[] script = instr.getExpectedMnemonicOrder(false);
 		assertEquals(MicroOp.M_READ_EA, script[2]);
 		assertEquals(MicroOp.M_WRITE_EA_DUMMY, script[3]);
@@ -147,7 +147,7 @@ public class Cpu65c02MicrocodeTest {
 	@Test
 	public void everyOpcodeHasMicroInstrEntry() {
 		for( int op = 0; op<256; op++ ) {
-			Cpu65c02Opcode instr = Cpu65c02Microcode.opcodeForByte(op);
+			Cpu65c02OpcodeView instr = Cpu65c02Microcode.opcodeForByte(op);
 			assertTrue(instr!=null);
 			assertEquals(op, instr.getOpcodeByte());
 			assertTrue(instr.getExpectedMnemonicOrder(false).length>=1);
@@ -158,7 +158,7 @@ public class Cpu65c02MicrocodeTest {
 	@Test
 	public void allLdaOpcodesHaveExpectedMicrocodeOrder() {
 		for( LdaExpect expect : LDA_EXPECTATIONS ) {
-			Cpu65c02Opcode entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
 			assertTrue(entry.usesMemoryDataRead());
 			assertEquals(expect.opcode, entry.getOpcodeByte());
 			assertEquals(expect.noCross.length, entry.getExpectedMnemonicOrder(false).length);

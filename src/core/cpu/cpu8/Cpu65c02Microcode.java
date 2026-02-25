@@ -120,7 +120,7 @@ public final class Cpu65c02Microcode {
 			table[i] = defaultInstr;
 
 		// LDA family from enum-owned microcode programs.
-		for( Cpu65c02Opcode.LdaOpcode lda : Cpu65c02Opcode.LdaOpcode.values() ) {
+		for( Cpu65c02Opcode lda : Cpu65c02Opcode.values() ) {
 			Cpu65c02Opcode.MicroCycleProgram program = lda.microcode();
 			set(table, lda.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
 		}
@@ -148,8 +148,8 @@ public final class Cpu65c02Microcode {
 		return TABLE[opcodeByte & 0xff];
 	}
 
-	public static Cpu65c02Opcode opcodeForByte(int opcodeByte) {
-		return new Cpu65c02Opcode(opcodeByte & 0xff);
+	public static Cpu65c02OpcodeView opcodeForByte(int opcodeByte) {
+		return new Cpu65c02OpcodeView(opcodeByte & 0xff);
 	}
 
 	public static MicroContext newContext() {
