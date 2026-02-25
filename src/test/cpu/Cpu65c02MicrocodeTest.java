@@ -8,6 +8,7 @@ import core.cpu.cpu8.Cpu65c02Microcode;
 import core.cpu.cpu8.Cpu65c02Microcode.MicroOp;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
 
 public class Cpu65c02MicrocodeTest {
@@ -87,6 +88,16 @@ public class Cpu65c02MicrocodeTest {
 		assertEquals(ldaOps.length, ldaBytes.length);
 		for( int i = 0; i<ldaOps.length; i++ )
 			assertEquals(ldaOps[i].opcodeByte(), ldaBytes[i]);
+	}
+
+	@Test
+	public void ldaOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( LdaOpcode lda : LdaOpcode.values() ) {
+			Cpu65c02Opcode entry = Cpu65c02Microcode.opcodeForByte(lda.opcodeByte());
+			assertEquals(lda.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(lda.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(lda.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
 	}
 
 	@Test

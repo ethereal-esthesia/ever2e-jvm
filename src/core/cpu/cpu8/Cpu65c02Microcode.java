@@ -119,34 +119,11 @@ public final class Cpu65c02Microcode {
 		for( int i = 0; i<table.length; i++ )
 			table[i] = defaultInstr;
 
-		// LDA family
-		set(table, 0xA9, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA));
-		set(table, 0xA5, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA));
-		set(table, 0xB5, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA));
-		set(table, 0xAD, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA));
-		set(table, 0xBD, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA));
-		set(table, 0xB9, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA));
-		set(table, 0xA1, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA));
-		set(table, 0xB1, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA));
-		set(table, 0xB2, AccessType.AT_READ,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA));
+		// LDA family from enum-owned microcode programs.
+		for( Cpu65c02Opcode.LdaOpcode lda : Cpu65c02Opcode.LdaOpcode.values() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = lda.microcode();
+			set(table, lda.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
 
 		// Representative write / RMW entries used by tests.
 		set(table, 0x8D, AccessType.AT_WRITE,
