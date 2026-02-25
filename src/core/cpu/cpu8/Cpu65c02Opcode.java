@@ -63,7 +63,13 @@ public enum Cpu65c02Opcode {
 	ROL_ZPG(0x26, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
 	ROL_ZPG_X(0x36, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
 	ROL_ABS(0x2E, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
-	ROL_ABS_X(0x3E, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA)));
+	ROL_ABS_X(0x3E, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+
+	ROR_ACC(0x6A, MicroCycleProgram.internalShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_INTERNAL))),
+	ROR_ZPG(0x66, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+	ROR_ZPG_X(0x76, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+	ROR_ABS(0x6E, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA))),
+	ROR_ABS_X(0x7E, MicroCycleProgram.rmwShared(cycles(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA)));
 
 	private final int opcodeByte;
 	private final MicroCycleProgram microcode;
@@ -84,6 +90,8 @@ public enum Cpu65c02Opcode {
 			LSR_ACC, LSR_ZPG, LSR_ZPG_X, LSR_ABS, LSR_ABS_X);
 	private static final EnumSet<Cpu65c02Opcode> ROL_FAMILY = EnumSet.of(
 			ROL_ACC, ROL_ZPG, ROL_ZPG_X, ROL_ABS, ROL_ABS_X);
+	private static final EnumSet<Cpu65c02Opcode> ROR_FAMILY = EnumSet.of(
+			ROR_ACC, ROR_ZPG, ROR_ZPG_X, ROR_ABS, ROR_ABS_X);
 
 	Cpu65c02Opcode(int opcodeByte, MicroCycleProgram microcode) {
 		this.opcodeByte = opcodeByte & 0xff;
@@ -158,6 +166,14 @@ public enum Cpu65c02Opcode {
 		return buildRolOpcodeBytes();
 	}
 
+	public static EnumSet<Cpu65c02Opcode> rorFamily() {
+		return EnumSet.copyOf(ROR_FAMILY);
+	}
+
+	public static int[] rorOpcodeBytes() {
+		return buildRorOpcodeBytes();
+	}
+
 	private static int[] buildLdaOpcodeBytes() {
 		Cpu65c02Opcode[] ops = LDA_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
@@ -208,6 +224,14 @@ public enum Cpu65c02Opcode {
 
 	private static int[] buildRolOpcodeBytes() {
 		Cpu65c02Opcode[] ops = ROL_FAMILY.toArray(new Cpu65c02Opcode[0]);
+		int[] bytes = new int[ops.length];
+		for( int i = 0; i<ops.length; i++ )
+			bytes[i] = ops[i].opcodeByte();
+		return bytes;
+	}
+
+	private static int[] buildRorOpcodeBytes() {
+		Cpu65c02Opcode[] ops = ROR_FAMILY.toArray(new Cpu65c02Opcode[0]);
 		int[] bytes = new int[ops.length];
 		for( int i = 0; i<ops.length; i++ )
 			bytes[i] = ops[i].opcodeByte();
