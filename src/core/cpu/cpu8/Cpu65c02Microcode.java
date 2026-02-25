@@ -8,8 +8,7 @@ import core.cpu.cpu8.Cpu65c02.OpcodeMnemonic;
 /**
  * Opcode-centric microcode descriptors.
  *
- * Each opcode gets explicit per-cycle mnemonics for fetch/read/write/dummy
- * phases. Scripts are provided for both no-cross and page-cross paths.
+ * Source-of-truth for per-cycle expected mnemonic order.
  */
 public final class Cpu65c02Microcode {
 
@@ -34,43 +33,37 @@ public final class Cpu65c02Microcode {
 		AT_RMW
 	}
 
-	public static final class OpcodeMicroInstr {
+	static final class OpcodeMicroInstr {
 		private final int opcodeByte;
-		private final Opcode opcode;
 		private final AccessType accessType;
 		private final MicroOp[] noCrossScript;
 		private final MicroOp[] crossScript;
 
-		private OpcodeMicroInstr(int opcodeByte, Opcode opcode, AccessType accessType, MicroOp[] noCrossScript, MicroOp[] crossScript) {
+		private OpcodeMicroInstr(int opcodeByte, AccessType accessType, MicroOp[] noCrossScript, MicroOp[] crossScript) {
 			this.opcodeByte = opcodeByte;
-			this.opcode = opcode;
 			this.accessType = accessType;
 			this.noCrossScript = noCrossScript;
 			this.crossScript = crossScript;
 		}
 
-		public int getOpcodeByte() {
+		int getOpcodeByte() {
 			return opcodeByte;
 		}
 
-		public Opcode getOpcode() {
-			return opcode;
-		}
-
-		public AccessType getAccessType() {
+		AccessType getAccessType() {
 			return accessType;
 		}
 
-		public MicroOp[] getCycleScript(boolean pageCrossed) {
+		MicroOp[] getCycleScript(boolean pageCrossed) {
 			MicroOp[] src = pageCrossed ? crossScript : noCrossScript;
 			return Arrays.copyOf(src, src.length);
 		}
 
-		public boolean usesMemoryDataRead() {
+		boolean usesMemoryDataRead() {
 			return indexOfFirstReadDataCycle(false)>=0 || indexOfFirstReadDataCycle(true)>=0;
 		}
 
-		public int getOperandReadCycleOffset(boolean pageCrossed) {
+		int getOperandReadCycleOffset(boolean pageCrossed) {
 			return indexOfFirstReadDataCycle(pageCrossed);
 		}
 
@@ -97,7 +90,7 @@ public final class Cpu65c02Microcode {
 			AccessType accessType = classifyAccessType(opcode);
 			MicroOp[] noCross = buildCycleScript(opcode, accessType, false);
 			MicroOp[] cross = buildCycleScript(opcode, accessType, true);
-			table[op] = new OpcodeMicroInstr(op, opcode, accessType, noCross, cross);
+			table[op] = new OpcodeMicroInstr(op, accessType, noCross, cross);
 		}
 		return table;
 	}
@@ -224,14 +217,24 @@ public final class Cpu65c02Microcode {
 		}
 	}
 
-	public static OpcodeMicroInstr microInstrForOpcodeByte(int opcodeByte) {
+	static OpcodeMicroInstr microInstrForOpcodeByte(int opcodeByte) {
 		return OPCODE_MICROCODE[opcodeByte & 0xff];
 	}
 
-	public static OpcodeMicroInstr microInstrForOpcode(Opcode opcode) {
+	static OpcodeMicroInstr microInstrForOpcode(Opcode opcode) {
 		if( opcode==null || opcode.getMachineCode()==null )
 			return null;
 		return microInstrForOpcodeByte(opcode.getMachineCode());
+	}
+
+	public static Cpu65c02Opcode opcodeForByte(int opcodeByte) {
+		return new Cpu65c02Opcode(opcodeByte & 0xff);
+	}
+
+	public static Cpu65c02Opcode opcodeFor(Opcode opcode) {
+		if( opcode==null || opcode.getMachineCode()==null )
+			return null;
+		return opcodeForByte(opcode.getMachineCode());
 	}
 
 	public static boolean usesMemoryDataRead(Opcode opcode) {
