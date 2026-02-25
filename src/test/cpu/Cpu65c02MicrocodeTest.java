@@ -11,6 +11,61 @@ import static org.junit.Assert.assertTrue;
 
 public class Cpu65c02MicrocodeTest {
 
+	private static final class LdaExpect {
+		final int opcode;
+		final MicroOp[] noCross;
+		final MicroOp[] cross;
+		final int readOffsetNoCross;
+		final int readOffsetCross;
+
+		LdaExpect(int opcode, MicroOp[] noCross, MicroOp[] cross, int readOffsetNoCross, int readOffsetCross) {
+			this.opcode = opcode;
+			this.noCross = noCross;
+			this.cross = cross;
+			this.readOffsetNoCross = readOffsetNoCross;
+			this.readOffsetCross = readOffsetCross;
+		}
+	}
+
+	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
+			new LdaExpect(0xA9,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
+					1, 1),
+			new LdaExpect(0xA5,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA },
+					2, 2),
+			new LdaExpect(0xB5,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 3),
+			new LdaExpect(0xAD,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					3, 3),
+			new LdaExpect(0xBD,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new LdaExpect(0xB9,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					3, 4),
+			new LdaExpect(0xA1,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					5, 5),
+			new LdaExpect(0xB1,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA },
+					4, 5),
+			new LdaExpect(0xB2,
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_ZP_PTR_LO, MicroOp.M_READ_ZP_PTR_HI, MicroOp.M_READ_EA },
+					4, 4),
+	};
+
 	@Test
 	public void microOpNamesUseMPrefix() {
 		for( MicroOp op : MicroOp.values() )
@@ -74,63 +129,18 @@ public class Cpu65c02MicrocodeTest {
 
 	@Test
 	public void allLdaOpcodesHaveExpectedMicrocodeOrder() {
-		for( int op : Cpu65c02Opcode.ldaOpcodeBytes() ) {
-			Cpu65c02Opcode entry = Cpu65c02Microcode.opcodeForByte(op);
-			MicroOp[] noCross = entry.getExpectedMnemonicOrder(false);
-			assertEquals(MicroOp.M_FETCH_OPCODE, noCross[0]);
+		for( LdaExpect expect : LDA_EXPECTATIONS ) {
+			Cpu65c02Opcode entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
 			assertTrue(entry.usesMemoryDataRead());
-			switch( op ) {
-				case 0xA9: // LDA #imm
-					assertEquals(MicroOp.M_READ_IMM_DATA, noCross[1]);
-					assertEquals(1, entry.getOperandReadCycleOffset(false));
-					break;
-				case 0xA5: // LDA zpg
-					assertEquals(MicroOp.M_FETCH_OPERAND_LO, noCross[1]);
-					assertEquals(MicroOp.M_READ_EA, noCross[2]);
-					assertEquals(2, entry.getOperandReadCycleOffset(false));
-					break;
-				case 0xB5: // LDA zpg,X
-					assertEquals(MicroOp.M_READ_DUMMY, noCross[2]);
-					assertEquals(MicroOp.M_READ_EA, noCross[3]);
-					assertEquals(3, entry.getOperandReadCycleOffset(false));
-					break;
-				case 0xAD: // LDA abs
-					assertEquals(MicroOp.M_FETCH_OPERAND_HI, noCross[2]);
-					assertEquals(MicroOp.M_READ_EA, noCross[3]);
-					assertEquals(3, entry.getOperandReadCycleOffset(false));
-					break;
-				case 0xBD: // LDA abs,X
-				case 0xB9: // LDA abs,Y
-					assertEquals(MicroOp.M_READ_EA, noCross[3]);
-					assertEquals(3, entry.getOperandReadCycleOffset(false));
-					assertEquals(MicroOp.M_READ_DUMMY, entry.getExpectedMnemonicOrder(true)[3]);
-					assertEquals(MicroOp.M_READ_EA, entry.getExpectedMnemonicOrder(true)[4]);
-					assertEquals(4, entry.getOperandReadCycleOffset(true));
-					break;
-				case 0xA1: // LDA (zpg,X)
-					assertEquals(MicroOp.M_READ_ZP_PTR_LO, noCross[3]);
-					assertEquals(MicroOp.M_READ_ZP_PTR_HI, noCross[4]);
-					assertEquals(MicroOp.M_READ_EA, noCross[5]);
-					assertEquals(5, entry.getOperandReadCycleOffset(false));
-					break;
-				case 0xB1: // LDA (zpg),Y
-					assertEquals(MicroOp.M_READ_ZP_PTR_LO, noCross[2]);
-					assertEquals(MicroOp.M_READ_ZP_PTR_HI, noCross[3]);
-					assertEquals(MicroOp.M_READ_EA, noCross[4]);
-					assertEquals(4, entry.getOperandReadCycleOffset(false));
-					assertEquals(MicroOp.M_READ_DUMMY, entry.getExpectedMnemonicOrder(true)[4]);
-					assertEquals(MicroOp.M_READ_EA, entry.getExpectedMnemonicOrder(true)[5]);
-					assertEquals(5, entry.getOperandReadCycleOffset(true));
-					break;
-				case 0xB2: // LDA (zpg)
-					assertEquals(MicroOp.M_READ_ZP_PTR_LO, noCross[2]);
-					assertEquals(MicroOp.M_READ_ZP_PTR_HI, noCross[3]);
-					assertEquals(MicroOp.M_READ_EA, noCross[4]);
-					assertEquals(4, entry.getOperandReadCycleOffset(false));
-					break;
-				default:
-					throw new AssertionError("Unexpected LDA opcode in table: " + op);
-			}
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.noCross.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.cross.length, entry.getExpectedMnemonicOrder(true).length);
+			for( int i = 0; i<expect.noCross.length; i++ )
+				assertEquals(expect.noCross[i], entry.getExpectedMnemonicOrder(false)[i]);
+			for( int i = 0; i<expect.cross.length; i++ )
+				assertEquals(expect.cross[i], entry.getExpectedMnemonicOrder(true)[i]);
+			assertEquals(expect.readOffsetNoCross, entry.getOperandReadCycleOffset(false));
+			assertEquals(expect.readOffsetCross, entry.getOperandReadCycleOffset(true));
 		}
 	}
 
