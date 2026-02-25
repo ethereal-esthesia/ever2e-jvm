@@ -128,11 +128,10 @@ public final class Cpu65c02Microcode {
 			Cpu65c02Opcode.MicroCycleProgram program = sta.microcode();
 			set(table, sta.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
 		}
-
-		// Representative RMW entry used by tests.
-		set(table, 0xE6, AccessType.AT_RMW,
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA),
-				script(MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA));
+		for( Cpu65c02Opcode inc : Cpu65c02Opcode.incFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = inc.microcode();
+			set(table, inc.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
 
 		return table;
 	}
