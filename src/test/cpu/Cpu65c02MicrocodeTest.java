@@ -83,6 +83,18 @@ public class Cpu65c02MicrocodeTest {
 		}
 	}
 
+	private static final class RolExpect {
+		final int opcode;
+		final MicroOp[] script;
+		final Cpu65c02Microcode.AccessType accessType;
+
+		RolExpect(int opcode, Cpu65c02Microcode.AccessType accessType, MicroOp[] script) {
+			this.opcode = opcode;
+			this.accessType = accessType;
+			this.script = script;
+		}
+	}
+
 	private static final LdaExpect[] LDA_EXPECTATIONS = new LdaExpect[] {
 			new LdaExpect(0xA9,
 					new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_READ_IMM_DATA },
@@ -161,6 +173,14 @@ public class Cpu65c02MicrocodeTest {
 			new LsrExpect(0x56, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new LsrExpect(0x4E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 			new LsrExpect(0x5E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+	};
+
+	private static final RolExpect[] ROL_EXPECTATIONS = new RolExpect[] {
+			new RolExpect(0x2A, Cpu65c02Microcode.AccessType.AT_NONE, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_INTERNAL }),
+			new RolExpect(0x26, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new RolExpect(0x36, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new RolExpect(0x2E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
+			new RolExpect(0x3E, Cpu65c02Microcode.AccessType.AT_RMW, new MicroOp[] { MicroOp.M_FETCH_OPCODE, MicroOp.M_FETCH_OPERAND_LO, MicroOp.M_FETCH_OPERAND_HI, MicroOp.M_READ_DUMMY, MicroOp.M_READ_EA, MicroOp.M_WRITE_EA_DUMMY, MicroOp.M_WRITE_EA }),
 	};
 
 	@Test
@@ -291,6 +311,25 @@ public class Cpu65c02MicrocodeTest {
 	}
 
 	@Test
+	public void rolOpcodeEnumMatchesOpcodeByteList() {
+		Cpu65c02Opcode[] rolOps = Cpu65c02Opcode.rolFamily().toArray(new Cpu65c02Opcode[0]);
+		int[] rolBytes = Cpu65c02Opcode.rolOpcodeBytes();
+		assertEquals(rolOps.length, rolBytes.length);
+		for( int i = 0; i<rolOps.length; i++ )
+			assertEquals(rolOps[i].opcodeByte(), rolBytes[i]);
+	}
+
+	@Test
+	public void rolOpcodeEnumProgramsDriveResolvedMicrocode() {
+		for( Cpu65c02Opcode rol : Cpu65c02Opcode.rolFamily() ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(rol.opcodeByte());
+			assertEquals(rol.microcode().accessType(), entry.getAccessType());
+			assertArrayEquals(rol.microcode().noCrossScript(), entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(rol.microcode().crossScript(), entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
 	public void opcodeByteRoundTripsToEnum() {
 		for( Cpu65c02Opcode lda : Cpu65c02Opcode.ldaFamily() )
 			assertEquals(lda, Cpu65c02Opcode.fromOpcodeByte(lda.opcodeByte()));
@@ -304,6 +343,8 @@ public class Cpu65c02MicrocodeTest {
 			assertEquals(asl, Cpu65c02Opcode.fromOpcodeByte(asl.opcodeByte()));
 		for( Cpu65c02Opcode lsr : Cpu65c02Opcode.lsrFamily() )
 			assertEquals(lsr, Cpu65c02Opcode.fromOpcodeByte(lsr.opcodeByte()));
+		for( Cpu65c02Opcode rol : Cpu65c02Opcode.rolFamily() )
+			assertEquals(rol, Cpu65c02Opcode.fromOpcodeByte(rol.opcodeByte()));
 	}
 
 	@Test
@@ -432,6 +473,19 @@ public class Cpu65c02MicrocodeTest {
 	@Test
 	public void allLsrOpcodesHaveExpectedMicrocodeOrder() {
 		for( LsrExpect expect : LSR_EXPECTATIONS ) {
+			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
+			assertEquals(expect.opcode, entry.getOpcodeByte());
+			assertEquals(expect.accessType, entry.getAccessType());
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(false).length);
+			assertEquals(expect.script.length, entry.getExpectedMnemonicOrder(true).length);
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(false));
+			assertArrayEquals(expect.script, entry.getExpectedMnemonicOrder(true));
+		}
+	}
+
+	@Test
+	public void allRolOpcodesHaveExpectedMicrocodeOrder() {
+		for( RolExpect expect : ROL_EXPECTATIONS ) {
 			Cpu65c02OpcodeView entry = Cpu65c02Microcode.opcodeForByte(expect.opcode);
 			assertEquals(expect.opcode, entry.getOpcodeByte());
 			assertEquals(expect.accessType, entry.getAccessType());

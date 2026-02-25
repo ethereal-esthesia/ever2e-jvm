@@ -144,6 +144,10 @@ public final class Cpu65c02Microcode {
 			Cpu65c02Opcode.MicroCycleProgram program = lsr.microcode();
 			set(table, lsr.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
 		}
+		for( Cpu65c02Opcode rol : Cpu65c02Opcode.rolFamily() ) {
+			Cpu65c02Opcode.MicroCycleProgram program = rol.microcode();
+			set(table, rol.opcodeByte(), program.accessType(), program.noCrossScript(), program.crossScript());
+		}
 
 		return table;
 	}
