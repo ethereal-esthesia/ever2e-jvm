@@ -47,4 +47,10 @@ public class Cpu65c02MicrocodeTest {
 		assertFalse(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OpcodeMnemonic.STA));
 		assertFalse(Cpu65c02Microcode.usesMemoryDataRead(Cpu65c02.OpcodeMnemonic.BNE));
 	}
+
+	@Test
+	public void microOpNamesUseMPrefix() {
+		for( Cpu65c02Microcode.MicroOp op : Cpu65c02Microcode.MicroOp.values() )
+			assertTrue(op.name().startsWith("M_"));
+	}
 }
