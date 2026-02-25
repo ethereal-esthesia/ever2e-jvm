@@ -205,6 +205,18 @@ public class EmulatorSchedulerContractTest {
     }
 
     @Test
+    public void resetLeavesStackPointerAtFdByDefault() throws Exception {
+        Env env = createEnv();
+        setVector(env.rom, 0xFFFC, PROG_PC);
+        loadProgram(env, PROG_PC, 0xEA); // NOP
+
+        // Execute only RES.
+        env.emulator.startWithStepPhases(1, env.cpu, (step, manager, preCycle) -> true);
+
+        assertEquals(0xFD, env.cpu.getRegister().getS());
+    }
+
+    @Test
     public void ldaUsesPendingCycleEventsBeforeInstructionEndEvent() throws Exception {
         Env env = createEnv();
 

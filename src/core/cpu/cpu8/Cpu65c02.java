@@ -467,7 +467,9 @@ public class Cpu65c02 extends HardwareManager {
 		reg.setY(0xff);
 		reg.setX(0xff);
 		reg.setPC(0xff);
-		reg.setS(0xff);
+		// 65C02 reset sequence internally performs three stack-pointer adjustments.
+		// Initialize S to 0x00 so RES adjustment lands at 0xFD (MAME/hardware behavior).
+		reg.setS(0x00);
 		reg.setP(0xff);
 		newPc = 0xffff;
 
